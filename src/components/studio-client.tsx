@@ -20,7 +20,9 @@ import {
     Eye,
     Smartphone,
     Monitor,
-    Square
+    Square,
+    Sparkles,
+    Shield
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +35,9 @@ import { formatDistanceToNow } from "date-fns";
 
 import { ExportDialog } from "./export-dialog";
 import { cn } from "@/lib/utils";
+import { CLAUDE_PRESETS, getClaudePrompt } from "@/lib/claudePresets";
+import { SAMPLE_TSX } from "@/lib/sampleTsx";
+import { validateTsxCode, ValidationError } from "@/lib/tsxValidator";
 
 // ============================================================================
 // LIVE IFRAME PREVIEW RUNNER (Babel + Remotion Mocks)
@@ -342,6 +347,9 @@ interface StudioClientProps {
     resolution?: string;
     fps?: number;
     isDemo?: boolean;
+    isReadOnly?: boolean;
+    isLoggedIn?: boolean;
+    userPlan?: string;
 }
 
 const DEFAULT_CODE = `import React from 'react';
@@ -372,7 +380,10 @@ export function StudioClient({
     versions = [],
     resolution: initialResolution = "1080p",
     fps = 30,
-    isDemo = false
+    isDemo = false,
+    isReadOnly = false,
+    isLoggedIn = false,
+    userPlan = "FREE"
 }: StudioClientProps) {
     const router = useRouter();
     const [code, setCode] = useState(initialCode || DEFAULT_CODE);
@@ -438,7 +449,8 @@ export function StudioClient({
     const [isValidating, setIsValidating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-    const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[]; warnings: string[]; } | null>(null);
+    const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: ValidationError[] } | null>(null);
+    const [activePresetId, setActivePresetId] = useState(CLAUDE_PRESETS[0].id);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleCodeChange = (value: string | undefined) => {
@@ -451,14 +463,19 @@ export function StudioClient({
         setIsValidating(true);
         setValidationResult(null);
         setTimeout(() => {
-            const errors: string[] = [];
-            const warnings: string[] = [];
-            if (!code.includes("export default")) errors.push("Missing 'export default' component.");
-            if (!code.includes("return")) errors.push("Component must have a return statement.");
-            setValidationResult({ valid: errors.length === 0, errors, warnings });
+            const res = validateTsxCode(code);
+            setValidationResult({ valid: res.ok, errors: res.errors });
             setIsValidating(false);
-            if (errors.length === 0) toast.success("Validation passed!");
-            else toast.error(errors.length + " error(s) found.");
+
+            if (res.ok) {
+                toast.success("Validation passed!", {
+                    description: "Ready for export node cluster."
+                });
+            } else {
+                toast.error("Code rejected by compiler", {
+                    description: `${res.errors.filter(e => e.severity === 'error').length} high-priority issue(s) detected.`
+                });
+            }
         }, 800);
     }, [code]);
 
@@ -496,6 +513,23 @@ export function StudioClient({
     const copyCode = () => { navigator.clipboard.writeText(code); toast.success("Code copied!"); };
     const handleReset = () => { if (confirm("Discard changes?")) setCode(originalCode); };
 
+    const handleLoadSample = () => {
+        setCode(SAMPLE_TSX);
+        setHasUnsavedChanges(true);
+        toast.success("Sample project injected!", {
+            description: "Click 'Run Preview' to see it in action."
+        });
+        setActiveTab("editor");
+    };
+
+    const handleCopyClaudePrompt = () => {
+        const prompt = getClaudePrompt(activePresetId, "", dimensions.durationInFrames / dimensions.fps);
+        navigator.clipboard.writeText(prompt);
+        toast.success("Claude prompt copied ✅", {
+            description: "Paste it into Claude to generate your TSX."
+        });
+    };
+
     // File Upload Handler
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -529,16 +563,24 @@ export function StudioClient({
                     </Badge>
 
                     <Button variant="ghost" size="sm" onClick={handleFormat}><Wand2 className="w-3.5 h-3.5 mr-2" /> Format</Button>
+                    {!isReadOnly && (
+                        <Button variant="ghost" size="sm" onClick={handleLoadSample} className="text-primary hover:text-primary hover:bg-primary/10">
+                            <Sparkles className="w-3.5 h-3.5 mr-2" /> Try Sample
+                        </Button>
+                    )}
                     <Button variant="outline" size="sm" onClick={validateCode} disabled={isValidating}>
                         {isValidating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Play className="w-3.5 h-3.5 mr-2" />} Run Preview
                     </Button>
-                    <Button size="sm" onClick={handleSave} disabled={isSaving || !hasUnsavedChanges}>
-                        {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                    </Button>
+                    {!isReadOnly && (
+                        <Button size="sm" onClick={handleSave} disabled={isSaving || !hasUnsavedChanges}>
+                            {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        </Button>
+                    )}
                     <ExportDialog
                         projectId={projectId}
                         versionId={activeVersionId}
                         disabled={isDemo}
+                        isLoggedIn={isLoggedIn}
                         width={dimensions.width}
                         height={dimensions.height}
                         fps={dimensions.fps}
@@ -554,6 +596,14 @@ export function StudioClient({
                     </div>
                     <ScrollArea className="flex-1">
                         <div className="p-2 space-y-2">
+                            {isReadOnly && (
+                                <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 mb-4">
+                                    <p className="text-[10px] font-black uppercase text-primary mb-1">Demo Mode</p>
+                                    <p className="text-[10px] text-muted-foreground leading-tight italic">
+                                        You are viewing a secure read-only demo. Sign up to save your own projects.
+                                    </p>
+                                </div>
+                            )}
                             {localVersions.map(v => (
                                 <div key={v.id} onClick={() => { setCode(v.code || DEFAULT_CODE); setActiveVersionId(v.id); }}
                                     className={cn("p-3 rounded-lg border transition-all cursor-pointer", v.id === activeVersionId ? "border-primary/30 bg-primary/5" : "border-white/5 hover:bg-white/5")}>
@@ -599,6 +649,25 @@ export function StudioClient({
                                     />
                                 </div>
                             </div>
+                        ) : validationResult && !validationResult.valid ? (
+                            <div className="w-full max-w-lg p-8 rounded-[40px] bg-destructive/5 border border-destructive/20 text-center space-y-6">
+                                <div className="w-20 h-20 rounded-3xl bg-destructive/10 border border-destructive/20 flex items-center justify-center mx-auto">
+                                    <AlertCircle className="w-10 h-10 text-destructive" />
+                                </div>
+                                <div>
+                                    <h3 className="text-3xl font-black italic uppercase tracking-tighter text-destructive">Preview Blocked</h3>
+                                    <p className="text-muted-foreground mt-2 italic font-medium">
+                                        {validationResult.errors[0]?.message}
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setActiveTab("editor")}
+                                    className="border-destructive/20 text-destructive hover:bg-destructive/10"
+                                >
+                                    View Fix Log
+                                </Button>
+                            </div>
                         ) : (
                             <div className="text-center text-muted-foreground flex flex-col items-center">
                                 <Play className="w-12 h-12 mb-4 opacity-20" />
@@ -612,20 +681,134 @@ export function StudioClient({
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
                         <TabsList className="w-full justify-start rounded-none h-10 bg-transparent border-b border-white/5 px-4 pt-1">
                             <TabsTrigger value="editor" className="text-[10px] uppercase font-bold tracking-wider data-[state=active]:bg-white/5 gap-2"><Code2 className="w-3 h-3" /> Editor</TabsTrigger>
+                            <TabsTrigger value="presets" className="text-[10px] uppercase font-bold tracking-wider data-[state=active]:bg-white/5 gap-2"><Sparkles className="w-3 h-3" /> Claude Presets</TabsTrigger>
+                            {validationResult && !validationResult.valid && (
+                                <TabsTrigger value="fixes" className="text-[10px] uppercase font-bold tracking-wider data-[state=active]:bg-red-500/10 text-red-500">Fixes ({validationResult.errors.length})</TabsTrigger>
+                            )}
                             <TabsTrigger value="upload" className="text-[10px] uppercase font-bold tracking-wider data-[state=active]:bg-white/5">Upload</TabsTrigger>
                         </TabsList>
                         <TabsContent value="editor" className="flex-1 m-0">
-                            <Editor height="100%" defaultLanguage="typescript" theme="vs-dark" value={code} onChange={handleCodeChange} options={{ minimap: { enabled: false }, fontSize: 13, automaticLayout: true }} />
+                            <Editor
+                                height="100%"
+                                defaultLanguage="typescript"
+                                theme="vs-dark"
+                                value={code}
+                                onChange={handleCodeChange}
+                                options={{
+                                    minimap: { enabled: false },
+                                    fontSize: 13,
+                                    automaticLayout: true,
+                                    readOnly: isReadOnly
+                                }}
+                            />
                         </TabsContent>
-                        <TabsContent value="upload" className="flex-1 p-6 m-0">
-                            <div
-                                className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl bg-white/5 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all"
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <input ref={fileInputRef} type="file" className="hidden" accept=".tsx,.ts" onChange={handleFileUpload} />
-                                <Upload className="w-8 h-8 text-primary mb-4" />
-                                <p className="text-sm text-muted-foreground">Click to Upload .tsx</p>
+                        <TabsContent value="presets" className="flex-1 p-6 m-0 bg-[#0A0A0B]">
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                    <h4 className="text-[10px] font-black uppercase text-primary tracking-widest italic">Claude Caption Presets</h4>
+                                    <p className="text-[10px] text-muted-foreground leading-relaxed italic">
+                                        Use these optimized prompts to generate viral captions with Claude.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 gap-2">
+                                    {CLAUDE_PRESETS.map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            onClick={() => setActivePresetId(preset.id)}
+                                            className={cn(
+                                                "p-4 rounded-2xl border text-left transition-all",
+                                                activePresetId === preset.id
+                                                    ? "bg-primary/10 border-primary/30"
+                                                    : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                                            )}
+                                        >
+                                            <p className="text-xs font-black italic uppercase tracking-tighter mb-1">{preset.name}</p>
+                                            <p className="text-[10px] text-muted-foreground leading-tight italic">{preset.description}</p>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-black/40 border border-white/5">
+                                    <pre className="text-[8px] font-mono text-muted-foreground/60 overflow-hidden line-clamp-4">
+                                        {CLAUDE_PRESETS.find(p => p.id === activePresetId)?.prompt}
+                                    </pre>
+                                </div>
+
+                                <Button onClick={handleCopyClaudePrompt} className="w-full h-12 rounded-xl font-black italic uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20">
+                                    <Copy className="w-3 h-3 mr-2" /> Copy Prompt for Claude
+                                </Button>
                             </div>
+                        </TabsContent>
+                        <TabsContent value="fixes" className="flex-1 m-0">
+                            <ScrollArea className="h-full bg-red-500/[0.02]">
+                                <div className="p-4 space-y-4">
+                                    <div className="space-y-2 p-4 rounded-2xl bg-red-500/10 border border-red-500/20">
+                                        <h4 className="text-[10px] font-black uppercase text-red-500 tracking-widest flex items-center gap-2">
+                                            <AlertCircle className="w-3 h-3" /> Critical Failures
+                                        </h4>
+                                    </div>
+
+                                    {validationResult?.errors.map((error, idx) => (
+                                        <div key={idx} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2 group">
+                                            <div className="flex items-center justify-between">
+                                                <h5 className="text-xs font-black italic uppercase tracking-tight text-white">{error.title}</h5>
+                                                <Badge className={cn(
+                                                    "text-[8px] font-black uppercase px-2 py-0 h-4 border-none shadow-none",
+                                                    error.severity === 'error' ? "bg-red-500/20 text-red-500" : "bg-yellow-500/20 text-yellow-500"
+                                                )}>
+                                                    {error.severity}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground leading-relaxed italic">{error.message}</p>
+                                            {error.hint && (
+                                                <div className="mt-2 p-3 rounded-xl bg-white/5 border border-white/5 space-y-2">
+                                                    <p className="text-[9px] font-medium text-primary tracking-wide">💡 Suggestion:</p>
+                                                    <p className="text-[10px] font-mono text-muted-foreground/80">{error.hint}</p>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 text-[8px] font-black uppercase px-2 hover:bg-white/10"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(error.hint || "");
+                                                            toast.success("Fix hint copied!");
+                                                        }}
+                                                    >
+                                                        Copy Hint
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    <div className="pt-4 border-t border-white/5">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] mb-4">Common Fixes</h4>
+                                        <ul className="space-y-2 text-[10px] text-muted-foreground/60 italic font-medium leading-relaxed">
+                                            <li className="flex gap-2"><span>•</span> Claude output must be ONE single TSX file</li>
+                                            <li className="flex gap-2"><span>•</span> Do not include markdown or explanations in editor</li>
+                                            <li className="flex gap-2"><span>•</span> Ensure export default exists at top level</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </ScrollArea>
+                        </TabsContent>
+                        <TabsContent value="upload" className="flex-1 p-6 m-0 bg-[#0A0A0B]">
+                            {!isReadOnly ? (
+                                <div
+                                    className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl bg-white/5 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <input ref={fileInputRef} type="file" className="hidden" accept=".tsx,.ts" onChange={handleFileUpload} />
+                                    <Upload className="w-8 h-8 text-primary mb-4" />
+                                    <p className="text-sm text-muted-foreground">Click to Upload .tsx</p>
+                                </div>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-white/10 rounded-2xl opacity-50">
+                                    <Shield className="w-8 h-8 mb-4 text-muted-foreground" />
+                                    <p className="text-xs font-black uppercase text-muted-foreground mb-1 tracking-widest">Protected Activity</p>
+                                    <p className="text-[10px] italic leading-relaxed">Uploads are disabled in demo mode. Sign in to push your own code.</p>
+                                </div>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </div>

@@ -205,6 +205,7 @@ function StatCard({ title, value, icon, trend = "neutral" }: { title: string, va
 
 function ProjectCard({ project, onDelete, isDeleting }: { project: Project, onDelete: (id: string) => void, isDeleting: boolean }) {
     const updatedAt = formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true });
+    const [imgError, setImgError] = useState(false);
 
     const getStatusBadge = (status: string) => {
         switch (status.toLowerCase()) {
@@ -220,14 +221,17 @@ function ProjectCard({ project, onDelete, isDeleting }: { project: Project, onDe
     return (
         <Card className="group border-white/5 bg-card/30 backdrop-blur-xl hover:border-primary/20 transition-all duration-300 overflow-hidden rounded-3xl">
             <div className="aspect-video bg-neutral-900 relative flex items-center justify-center group-hover:bg-neutral-800 transition-colors overflow-hidden">
-                {project.thumbnailUrl ? (
+                {project.thumbnailUrl && !imgError ? (
                     <img
                         src={project.thumbnailUrl}
                         alt={project.name}
+                        onError={() => setImgError(true)}
                         className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500"
                     />
                 ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-secondary/5" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-secondary/10 opacity-40 group-hover:opacity-60 transition-opacity">
+                        <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+                    </div>
                 )}
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                     <DropdownMenu>

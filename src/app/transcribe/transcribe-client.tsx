@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { CLAUDE_PRESETS, getClaudePrompt } from "@/lib/claudePresets";
 
 interface TranscriptionJob {
     id: string;
@@ -66,6 +67,7 @@ export function TranscribeClient({ initialJobs }: TranscribeClientProps) {
     const [activeJobId, setActiveJobId] = useState<string | null>(null);
     const [previewJson, setPreviewJson] = useState<string | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
+    const [selectedPreset, setSelectedPreset] = useState(CLAUDE_PRESETS[0].id);
 
     // Auto-switch script and model based on language selection
     useEffect(() => {
@@ -234,19 +236,13 @@ export function TranscribeClient({ initialJobs }: TranscribeClientProps) {
 
     const handleCopyClaudePrompt = () => {
         if (previewJson) {
-            const prompt = `I have a video/audio transcription with timestamps. Please analyze it and help me:
-
-1. Summarize the key points
-2. Identify important timestamps
-3. Suggest ways to structure this content
-
-Here is the transcription JSON:
-
-\`\`\`json
-${previewJson}
-\`\`\``;
+            const job = jobs.find(j => !!previewJson); // Simple heuristic
+            const duration = job?.durationSeconds || 30;
+            const prompt = getClaudePrompt(selectedPreset, previewJson, duration);
             navigator.clipboard.writeText(prompt);
-            toast.success("Claude prompt copied!");
+            toast.success("Claude prompt copied ✅", {
+                description: "Paste this into Claude to get your TSX code."
+            });
         }
     };
 
@@ -552,15 +548,29 @@ ${previewJson}
                                         <Copy className="w-3 h-3 mr-1" />
                                         Copy JSON
                                     </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleCopyClaudePrompt}
-                                        className="h-8 text-xs text-primary"
-                                    >
-                                        <Sparkles className="w-3 h-3 mr-1" />
-                                        Copy Claude Prompt
-                                    </Button>
+
+                                    <div className="flex items-center gap-1 bg-white/5 rounded-lg border border-white/10 p-1">
+                                        <Select value={selectedPreset} onValueChange={setSelectedPreset}>
+                                            <SelectTrigger className="h-6 text-[9px] bg-transparent border-none shadow-none w-28 uppercase font-bold tracking-widest">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-card/90 backdrop-blur-xl border-white/10">
+                                                {CLAUDE_PRESETS.map(p => (
+                                                    <SelectItem key={p.id} value={p.id} className="text-[10px] uppercase font-bold">{p.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleCopyClaudePrompt}
+                                            className="h-6 text-[9px] text-primary uppercase font-bold tracking-widest hover:bg-primary/10"
+                                        >
+                                            <Sparkles className="w-3 h-3 mr-1" />
+                                            Copy Prompt
+                                        </Button>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -591,14 +601,26 @@ ${previewJson}
                                 <Download className="w-4 h-4 mr-2" />
                                 Download JSON
                             </Button>
-                            <Button
-                                variant="outline"
-                                onClick={handleCopyClaudePrompt}
-                                className="flex-1 h-12 rounded-xl font-black italic uppercase text-xs tracking-widest border-primary/20 text-primary hover:bg-primary/10"
-                            >
-                                <Sparkles className="w-4 h-4 mr-2" />
-                                Copy Claude Prompt
-                            </Button>
+                            <div className="flex items-center gap-1 bg-white/5 rounded-xl border border-white/10 p-1 flex-1">
+                                <Select value={selectedPreset} onValueChange={setSelectedPreset}>
+                                    <SelectTrigger className="h-10 text-[10px] bg-transparent border-none shadow-none flex-1 uppercase font-bold tracking-widest">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-card/90 backdrop-blur-xl border-white/10">
+                                        {CLAUDE_PRESETS.map(p => (
+                                            <SelectItem key={p.id} value={p.id} className="text-[10px] uppercase font-bold">{p.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleCopyClaudePrompt}
+                                    className="h-10 px-6 rounded-lg font-black italic uppercase text-[10px] tracking-widest border-primary/20 text-primary hover:bg-primary/10"
+                                >
+                                    <Sparkles className="w-4 h-4 mr-2" />
+                                    Copy Claude Prompt
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>

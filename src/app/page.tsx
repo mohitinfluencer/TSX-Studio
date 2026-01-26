@@ -129,7 +129,7 @@ export default function LandingPage() {
                   Start Free Journey
                 </Button>
               </Link>
-              <Link href="/studio/demo">
+              <Link href="/demo">
                 <Button size="lg" variant="outline" className="h-16 px-10 rounded-2xl border-white/10 bg-white/5 hover:bg-white/10 font-black text-xl italic backdrop-blur-xl">
                   <MonitorPlay className="mr-3 w-5 h-5 text-neon-cyan" /> Open Studio Demo
                 </Button>
@@ -380,14 +380,21 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-12">
-            <FooterColumn title="Platform" links={["Features", "Cloud Render", "Marketplace", "Desktop App"]} />
-            <FooterColumn title="Studio" links={["Demo Studio", "API Docs", "Changelog", "Integrations"]} />
-            <FooterColumn title="Legal" links={["Terms", "Privacy", "Security", "Cookie Policy"]} />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-12 text-left">
+            <FooterColumn title="Platform" links={[{ name: "Features", href: "/#features" }, { name: "Cloud Render", href: "/pricing" }, { name: "Marketplace", href: "/marketplace" }]} />
+            <FooterColumn title="Studio" links={[{ name: "Demo Studio", href: "/demo" }, { name: "Transcriber", href: "/transcribe" }, { name: "Exports", href: "/exports" }]} />
+            <FooterColumn title="Legal" links={[{ name: "Terms", href: "/terms" }, { name: "Privacy", href: "/privacy" }, { name: "Contact", href: "/contact" }]} />
           </div>
         </div>
-        <div className="max-w-7xl mx-auto mt-20 pt-12 border-t border-white/5 text-center">
+        <div className="max-w-7xl mx-auto mt-20 pt-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground/40">© 2026 TSX Studio // All Assets Reserved</p>
+          <div className="flex items-center gap-8 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">
+            <span>Support: mohitgupta4006@gmail.com</span>
+            <div className="flex gap-4">
+              <Twitter className="w-4 h-4 hover:text-neon-cyan cursor-pointer transition-colors" />
+              <Github className="w-4 h-4 hover:text-white cursor-pointer transition-colors" />
+            </div>
+          </div>
         </div>
       </footer>
     </div>
@@ -451,8 +458,8 @@ function ProcessStep({ number, title, desc, align, icon }: { number: string, tit
 function PricingCard({ featured = false, name, price, desc, features, cta, tag }: { featured?: boolean, name: string, price: string, desc: string, features: string[], cta: string, tag?: string }) {
   return (
     <div className={`relative p-10 rounded-[40px] border flex flex-col h-full transition-all duration-500 overflow-hidden ${featured
-        ? "border-neon-cyan bg-neon-cyan/[0.03] scale-105 shadow-[0_0_50px_rgba(39,242,255,0.1)]"
-        : "border-white/5 bg-white/[0.02] hover:border-white/10"
+      ? "border-neon-cyan bg-neon-cyan/[0.03] scale-105 shadow-[0_0_50px_rgba(39,242,255,0.1)]"
+      : "border-white/5 bg-white/[0.02] hover:border-white/10"
       }`}>
       {featured && (
         <div className="absolute top-6 right-6">
@@ -480,8 +487,8 @@ function PricingCard({ featured = false, name, price, desc, features, cta, tag }
       </div>
 
       <Button className={`h-14 rounded-2xl font-black italic text-lg transition-all ${featured
-          ? "bg-neon-cyan text-background hover:bg-neon-cyan/90 shadow-[0_0_30px_rgba(39,242,255,0.3)]"
-          : "bg-white/5 border border-white/10 text-white hover:bg-white/10"
+        ? "bg-neon-cyan text-background hover:bg-neon-cyan/90 shadow-[0_0_30px_rgba(39,242,255,0.3)]"
+        : "bg-white/5 border border-white/10 text-white hover:bg-white/10"
         }`}>
         {cta}
       </Button>
@@ -489,14 +496,14 @@ function PricingCard({ featured = false, name, price, desc, features, cta, tag }
   );
 }
 
-function FooterColumn({ title, links }: { title: string, links: string[] }) {
+function FooterColumn({ title, links }: { title: string, links: { name: string, href: string }[] }) {
   return (
     <div className="space-y-6">
       <h5 className="text-[10px] font-black uppercase tracking-[0.3em] text-white underline decoration-neon-cyan decoration-2 underline-offset-8">{title}</h5>
       <ul className="space-y-3">
         {links.map((link) => (
-          <li key={link}>
-            <Link href="#" className="text-sm text-muted-foreground hover:text-white transition-colors font-medium">{link}</Link>
+          <li key={link.name}>
+            <Link href={link.href} className="text-sm text-muted-foreground hover:text-white transition-colors font-medium">{link.name}</Link>
           </li>
         ))}
       </ul>

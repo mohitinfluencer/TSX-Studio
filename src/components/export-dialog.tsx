@@ -22,11 +22,13 @@ import { Label } from "@/components/ui/label";
 import { Rocket, Loader2, CheckCircle2, Film, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface ExportDialogProps {
     projectId: string;
     versionId: string;
     disabled?: boolean;
+    isLoggedIn?: boolean;
     width?: number;
     height?: number;
     fps?: number;
@@ -37,6 +39,7 @@ export function ExportDialog({
     projectId,
     versionId,
     disabled = false,
+    isLoggedIn = false,
     width = 1080,
     height = 1920,
     fps = 30,
@@ -116,9 +119,11 @@ export function ExportDialog({
 
     if (disabled) {
         return (
-            <Button size="sm" variant="secondary" className="gap-2 text-xs h-8 opacity-50 cursor-not-allowed" disabled>
-                <Rocket className="w-3.5 h-3.5" /> Export
-            </Button>
+            <Link href={isLoggedIn ? "/dashboard" : "/signup"}>
+                <Button size="sm" variant="outline" className="gap-2 text-[10px] h-8 font-black uppercase tracking-widest border-primary/20 text-primary hover:bg-primary/10">
+                    <Rocket className="w-3.5 h-3.5" /> {isLoggedIn ? "Start Real Project" : "Sign in to Export"}
+                </Button>
+            </Link>
         );
     }
 
