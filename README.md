@@ -1,6 +1,6 @@
 # TSX Studio
 
-A high-performance, web-based animation studio powered by Remotion.
+A high-performance, web-based animation studio powered by Remotion. **Status: All things are working!**
 
 ## Features
 
