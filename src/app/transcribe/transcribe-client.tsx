@@ -60,10 +60,34 @@ export function TranscribeClient({ initialJobs }: TranscribeClientProps) {
     const [jobs, setJobs] = useState<TranscriptionJob[]>(initialJobs);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [selectedModel, setSelectedModel] = useState("base");
+    const [selectedLanguage, setSelectedLanguage] = useState("auto");
+    const [selectedScript, setSelectedScript] = useState("Auto");
     const [isUploading, setIsUploading] = useState(false);
     const [activeJobId, setActiveJobId] = useState<string | null>(null);
     const [previewJson, setPreviewJson] = useState<string | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
+
+    // Auto-switch script and model based on language selection
+    useEffect(() => {
+        // 1. Script Selection Logic
+        if (selectedLanguage === "hi") {
+            setSelectedScript("Hindi");
+        } else if (selectedLanguage === "ur") {
+            setSelectedScript("Urdu");
+        } else if (selectedLanguage === "hinglish") {
+            setSelectedScript("Romanized");
+        }
+
+        // 2. Model Auto-Selection Rule for Hindi/Hinglish
+        if (selectedLanguage === "hi" || selectedLanguage === "hinglish") {
+            if (selectedModel === "tiny" || selectedModel === "base") {
+                setSelectedModel("small");
+                toast.info("Switched to Small model for better Hindi/Hinglish accuracy", {
+                    description: "Tiny and Base models often struggle with complex scripts.",
+                });
+            }
+        }
+    }, [selectedLanguage]);
 
     // Poll for active job status
     useEffect(() => {
@@ -141,6 +165,15 @@ export function TranscribeClient({ initialJobs }: TranscribeClientProps) {
             const formData = new FormData();
             formData.append("file", selectedFile);
             formData.append("model", selectedModel);
+            formData.append("languageMode", selectedLanguage);
+            formData.append("scriptOutput", selectedScript);
+
+            // Add specialized prompts based on mode
+            if (selectedLanguage === "hi" && selectedScript === "Hindi") {
+                formData.append("prompt", "नमस्ते, यह एक हिंदी वीडियो है। कृपया इसे केवल देवनागरी लिपि में ही लिखें।");
+            } else if (selectedLanguage === "hinglish") {
+                formData.append("prompt", "Transcribe Hinglish speech mixing Hindi and English. Write Hindi in Devanagari (देवनागरी) and English in Latin script. Keep terms like AI, GPT, OpenAI, Video in English.");
+            }
 
             const res = await fetch("/api/transcribe", {
                 method: "POST",
@@ -230,14 +263,25 @@ ${previewJson}
         }
     };
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
+    const getStatusBadge = (job: TranscriptionJob) => {
+        switch (job.status) {
             case "DONE":
                 return <Badge className="bg-green-500/10 text-green-400 border-green-500/20"><CheckCircle2 className="w-3 h-3 mr-1" /> Done</Badge>;
             case "RUNNING":
                 return <Badge className="bg-primary/10 text-primary border-primary/20"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Running</Badge>;
             case "FAILED":
-                return <Badge className="bg-destructive/10 text-destructive border-destructive/20"><XCircle className="w-3 h-3 mr-1" /> Failed</Badge>;
+                return (
+                    <div className="group/error relative">
+                        <Badge className="bg-destructive/10 text-destructive border-destructive/20 cursor-help">
+                            <XCircle className="w-3 h-3 mr-1" /> Failed
+                        </Badge>
+                        {job.errorMessage && (
+                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-xl bg-destructive text-[10px] text-white font-mono z-50 opacity-0 group-hover/error:opacity-100 transition-opacity pointer-events-none break-words shadow-2xl">
+                                {job.errorMessage}
+                            </div>
+                        )}
+                    </div>
+                );
             default:
                 return <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/20"><Clock className="w-3 h-3 mr-1" /> Queued</Badge>;
         }
@@ -327,8 +371,8 @@ ${previewJson}
                     </div>
 
                     {/* Settings */}
-                    <div className="flex items-center gap-4">
-                        <div className="flex-1">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-2 sm:col-span-1">
                             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2">
                                 Whisper Model
                             </label>
@@ -349,11 +393,54 @@ ${previewJson}
                             </Select>
                         </div>
 
-                        <div className="pt-6">
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2">
+                                Language
+                            </label>
+                            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                                <SelectTrigger className="bg-card/50 border-white/10 h-12">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-card/90 backdrop-blur-xl border-white/10">
+                                    <SelectItem value="auto">Auto Detect</SelectItem>
+                                    <SelectItem value="en">English</SelectItem>
+                                    <SelectItem value="hi">Hindi (Pure)</SelectItem>
+                                    <SelectItem value="hinglish">Hinglish (Hindi + English)</SelectItem>
+                                    <SelectItem value="ur">Urdu</SelectItem>
+                                    <SelectItem value="es">Spanish</SelectItem>
+                                    <SelectItem value="fr">French</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            {selectedLanguage === "hinglish" && (
+                                <p className="text-[10px] text-primary mt-1 px-1 font-medium animate-in fade-in slide-in-from-top-1">
+                                    Best for mixed Hindi + English speech. Brand names stay in English.
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block mb-2">
+                                Script Output
+                            </label>
+                            <Select value={selectedScript} onValueChange={setSelectedScript}>
+                                <SelectTrigger className="bg-card/50 border-white/10 h-12">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-card/90 backdrop-blur-xl border-white/10">
+                                    <SelectItem value="Auto">Default</SelectItem>
+                                    <SelectItem value="Hindi">Hindi (Devanagari)</SelectItem>
+                                    <SelectItem value="Mixed">Mixed (Hindi + English Script)</SelectItem>
+                                    <SelectItem value="Romanized">Romanized Hindi (English Letters)</SelectItem>
+                                    <SelectItem value="Urdu">Urdu (Arabic)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="col-span-2 sm:col-span-1 flex items-end">
                             <Button
                                 onClick={handleUpload}
                                 disabled={!selectedFile || isUploading || !!activeJobId}
-                                className="h-12 px-8 rounded-xl font-black italic uppercase text-xs tracking-widest"
+                                className="h-12 w-full rounded-xl font-black italic uppercase text-xs tracking-widest shadow-lg shadow-primary/20"
                             >
                                 {isUploading ? (
                                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Uploading</>
@@ -394,7 +481,7 @@ ${previewJson}
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {getStatusBadge(job.status)}
+                                            {getStatusBadge(job)}
                                             {job.hasOutput && (
                                                 <>
                                                     <Button

@@ -12,9 +12,21 @@ Models: tiny, base, small, medium, large-v2
 import sys
 import json
 import os
+import argparse
+import re
 from faster_whisper import WhisperModel
 
-def transcribe(input_path: str, model_size: str, output_path: str):
+# Optional dependency for transliteration
+try:
+    from aksharamukha import transliterate
+except ImportError:
+    transliterate = None
+
+def has_arabic_script(text):
+    """Check if the text contains characters from the Arabic block (Urdu/Persian/Arabic)."""
+    return bool(re.search(r'[\u0600-\u06FF]', text))
+
+def transcribe(input_path: str, model_size: str, output_path: str, language: str = None, initial_prompt: str = None, target_script: str = "Auto"):
     """
     Transcribe audio/video file and save timestamped JSON.
     """
@@ -23,15 +35,43 @@ def transcribe(input_path: str, model_size: str, output_path: str):
         sys.exit(1)
 
     try:
-        # Use CPU by default, GPU if available
-        device = "cpu"
-        compute_type = "int8"
+        # Detect Hardware for maximum speed
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        # int8 is best for CPU, float16 is best for GPU
+        compute_type = "float16" if device == "cuda" else "int8"
         
-        print(f"Loading model: {model_size}", file=sys.stderr)
-        model = WhisperModel(model_size, device=device, compute_type=compute_type)
+        print(f"Hardware: {device.upper()} | Model: {model_size} | Compute: {compute_type}", file=sys.stderr)
         
-        print(f"Transcribing: {input_path}", file=sys.stderr)
-        segments, info = model.transcribe(input_path, beam_size=5)
+        # Use more threads for CPU if available
+        cpu_threads = os.cpu_count() or 4
+        
+        model = WhisperModel(
+            model_size, 
+            device=device, 
+            compute_type=compute_type,
+            cpu_threads=cpu_threads,
+            num_workers=cpu_threads // 2 if device == "cpu" else 1
+        )
+        
+        # Optimize parameters for high stability in Hindi
+        transcribe_args = {
+            "beam_size": 5,
+            "temperature": 0.0,
+            "vad_filter": True,
+            "initial_prompt": initial_prompt,
+            "condition_on_previous_text": False,
+            "repetition_penalty": 1.25, # Higher penalty to break loops
+            "no_speech_threshold": 0.6,
+            "compression_ratio_threshold": 2.2, # Threshold to reject repetitive text
+            "log_prob_threshold": -1.0,
+        }
+        
+        if language:
+            transcribe_args["language"] = language
+            
+        print(f"Transcribing: {input_path} (Language: {language}, Script: {target_script})", file=sys.stderr)
+        segments, info = model.transcribe(input_path, **transcribe_args)
         
         # Build output structure
         result = {
@@ -41,13 +81,27 @@ def transcribe(input_path: str, model_size: str, output_path: str):
             "segments": []
         }
         
-        for segment in segments:
+        segments_list = list(segments)
+        
+        for segment in segments_list:
+            text = segment.text.strip()
+            
+            # Post-processing for script override (Hindi/Urdu Fix)
+            if target_script in ["Hindi", "Mixed"] and has_arabic_script(text):
+                if transliterate:
+                    print(f"DETECTED ARABIC SCRIPT IN {target_script.upper()} MODE. TRANSLITERATING...", file=sys.stderr)
+                    # Use Aksharamukha to transliterate Urdu/Arabic script to Devanagari
+                    text = transliterate.process('Urdu', 'Devanagari', text)
+                else:
+                    print(f"WARNING: Arabic script detected in {target_script} mode but 'aksharamukha' not installed.", file=sys.stderr)
+
             result["segments"].append({
                 "id": segment.id,
                 "start": round(segment.start, 2),
                 "end": round(segment.end, 2),
-                "text": segment.text.strip()
+                "text": text
             })
+            
             # Progress indicator
             progress = min(100, int((segment.end / info.duration) * 100))
             print(f"PROGRESS:{progress}", file=sys.stderr)
@@ -63,12 +117,14 @@ def transcribe(input_path: str, model_size: str, output_path: str):
         sys.exit(1)
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print(json.dumps({"error": "Usage: transcribe.py <input_file> <model_size> <output_path>"}))
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="TSX Studio Transcription Service")
+    parser.add_argument("input_file", help="Path to input audio/video file")
+    parser.add_argument("model_size", help="Whisper model size (tiny, base, etc.)")
+    parser.add_argument("output_path", help="Path to save output JSON")
+    parser.add_argument("--language", help="Force transcription language", default=None)
+    parser.add_argument("--prompt", help="Initial prompt for Whisper", default=None)
+    parser.add_argument("--script", help="Target output script (Auto, Hindi, Urdu)", default="Auto")
     
-    input_file = sys.argv[1]
-    model_size = sys.argv[2]
-    output_file = sys.argv[3]
+    args = parser.parse_args()
     
-    transcribe(input_file, model_size, output_file)
+    transcribe(args.input_file, args.model_size, args.output_path, args.language, args.prompt, args.script)

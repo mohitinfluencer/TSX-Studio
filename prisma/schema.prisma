@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "library"
 }
 
@@ -8,50 +8,48 @@ datasource db {
 }
 
 model User {
-  id                    String    @id @default(cuid())
-  name                  String?
-  email                 String?   @unique
-  emailVerified         DateTime?
-  image                 String?
-  plan                  String    @default("FREE") // FREE, CREATOR, PRO
-  stripeCustomerId      String?   @unique
-  stripeSubscriptionId  String?   @unique
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  
-  projects              Project[]
-  logs                  ActivityLog[]
-  renderJobs            RenderJob[]
-  renderUsage           RenderUsage[]
-  
-  entitlement           UserEntitlement?
-  creditTransactions    CreditTransaction[]
-  workspaces            WorkspaceMember[]
-  submittedTemplates    Template[]
-  reports               TemplateReport[]
-  referralCode          ReferralCode?
-  accounts              Account[]
-  sessions              Session[]
-  referralsMade         ReferralEvent[] @relation("Referrer")
-  referralReceived      ReferralEvent?  @relation("ReferredUser")
-  transcriptionJobs     TranscriptionJob[]
+  id                   String              @id @default(cuid())
+  name                 String?
+  email                String?             @unique
+  emailVerified        DateTime?
+  image                String?
+  plan                 String              @default("FREE")
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  stripeCustomerId     String?             @unique
+  stripeSubscriptionId String?             @unique
+  accounts             Account[]
+  logs                 ActivityLog[]
+  creditTransactions   CreditTransaction[]
+  projects             Project[]
+  referralCode         ReferralCode?
+  referralReceived     ReferralEvent?      @relation("ReferredUser")
+  referralsMade        ReferralEvent[]     @relation("Referrer")
+  renderJobs           RenderJob[]
+  renderUsage          RenderUsage[]
+  sessions             Session[]
+  submittedTemplates   Template[]
+  reports              TemplateReport[]
+  transcriptionJobs    TranscriptionJob[]
+  entitlement          UserEntitlement?
+  workspaces           WorkspaceMember[]
 }
 
 model UserEntitlement {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  plan            String   @default("FREE")
-  creditsBalance  Int      @default(3)
-  monthlyCredits  Int      @default(3)
-  resetDay        Int      @default(1)
-  updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  plan           String   @default("FREE")
+  creditsBalance Int      @default(3)
+  monthlyCredits Int      @default(3)
+  resetDay       Int      @default(1)
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CreditTransaction {
   id                    String   @id @default(cuid())
   userId                String
-  type                  String   // MONTHLY_GRANT, PURCHASE, SPEND, REFUND, ADMIN_ADJUST
+  type                  String
   amount                Int
   renderJobId           String?
   stripePaymentIntentId String?
@@ -60,40 +58,40 @@ model CreditTransaction {
 }
 
 model Workspace {
-  id          String            @id @default(cuid())
-  name        String
-  ownerId     String
-  createdAt   DateTime          @default(now())
-  members     WorkspaceMember[]
-  projects    Project[]
+  id        String            @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime          @default(now())
+  projects  Project[]
+  members   WorkspaceMember[]
 }
 
 model WorkspaceMember {
   id          String    @id @default(cuid())
   workspaceId String
   userId      String
-  role        String    @default("MEMBER") // OWNER, ADMIN, MEMBER
+  role        String    @default("MEMBER")
   createdAt   DateTime  @default(now())
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model Project {
-  id          String           @id @default(cuid())
-  userId      String
-  workspaceId String?
-  name        String
-  status      String           @default("Draft")
-  resolution  String           @default("1080p")
-  fps         Int              @default(30)
+  id           String           @id @default(cuid())
+  userId       String
+  workspaceId  String?
+  name         String
+  status       String           @default("Draft")
+  resolution   String           @default("1080p")
+  fps          Int              @default(30)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
   thumbnailUrl String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  workspace   Workspace?       @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
-  versions    ProjectVersion[]
-  logs        ActivityLog[]
-  renderJobs  RenderJob[]
+  logs         ActivityLog[]
+  workspace    Workspace?       @relation(fields: [workspaceId], references: [id])
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  versions     ProjectVersion[]
+  renderJobs   RenderJob[]
 }
 
 model ProjectVersion {
@@ -110,26 +108,26 @@ model ProjectVersion {
 }
 
 model RenderJob {
-  id               String    @id @default(cuid())
-  userId           String
-  projectId        String
-  versionId        String
-  status           String    @default("QUEUED")
-  outputFormat     String    @default("MP4")
-  resolution       String    @default("1080p")
-  fps              Int       @default(30)
-  durationSeconds  Float?
-  progress         Int       @default(0)
-  errorMessage     String?
-  logs             String?
-  outputUrl        String?
-  outputSizeBytes  BigInt?
-  createdAt        DateTime  @default(now())
-  startedAt        DateTime?
-  finishedAt       DateTime?
-  updatedAt        DateTime  @updatedAt
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  userId          String
+  projectId       String
+  versionId       String
+  status          String    @default("QUEUED")
+  outputFormat    String    @default("MP4")
+  resolution      String    @default("1080p")
+  fps             Int       @default(30)
+  durationSeconds Float?
+  progress        Int       @default(0)
+  errorMessage    String?
+  logs            String?
+  outputUrl       String?
+  outputSizeBytes BigInt?
+  createdAt       DateTime  @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  updatedAt       DateTime  @updatedAt
+  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model RenderUsage {
@@ -150,7 +148,7 @@ model Template {
   title           String
   description     String
   category        String
-  tags            String           // JSON string in SQLite
+  tags            String
   previewImageUrl String?
   code            String
   isPublic        Boolean          @default(false)
@@ -164,13 +162,13 @@ model Template {
 }
 
 model TemplateReport {
-  id          String   @id @default(cuid())
-  templateId  String
-  reporterId  String
-  reason      String
-  createdAt   DateTime @default(now())
-  template    Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  reporter    User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  templateId String
+  reporterId String
+  reason     String
+  createdAt  DateTime @default(now())
+  reporter   User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
 }
 
 model ReferralCode {
@@ -185,10 +183,10 @@ model ReferralEvent {
   id             String   @id @default(cuid())
   referrerId     String
   referredUserId String   @unique
-  status         String   @default("SIGNED_UP") // SIGNED_UP, SUBSCRIBED, REWARDED
+  status         String   @default("SIGNED_UP")
   createdAt      DateTime @default(now())
-  referrer       User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
   referredUser   User     @relation("ReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
+  referrer       User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
 }
 
 model ActivityLog {
@@ -198,25 +196,24 @@ model ActivityLog {
   action    String
   meta      String?
   createdAt DateTime @default(now())
+  project   Project? @relation(fields: [projectId], references: [id])
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?
-  access_token       String?
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?
-  session_state      String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -238,16 +235,16 @@ model VerificationToken {
 }
 
 model TranscriptionJob {
-  id              String    @id @default(cuid())
+  id              String   @id @default(cuid())
   userId          String
-  status          String    @default("QUEUED") // QUEUED, RUNNING, DONE, FAILED
-  model           String    @default("base")   // tiny, base, small, medium
+  status          String   @default("QUEUED")
+  model           String   @default("base")
   fileName        String
   filePath        String
-  jsonOutput      String?   // Full JSON result stored as text
+  jsonOutput      String?
   durationSeconds Float?
   errorMessage    String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

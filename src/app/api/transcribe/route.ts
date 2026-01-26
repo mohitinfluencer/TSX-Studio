@@ -22,6 +22,29 @@ export async function POST(req: NextRequest) {
         const formData = await req.formData();
         const file = formData.get("file") as File | null;
         const model = (formData.get("model") as string) || "base";
+        const languageMode = formData.get("languageMode") as string | null;
+        const scriptOutput = formData.get("scriptOutput") as string | null;
+        const clientPrompt = formData.get("prompt") as string | null;
+
+        let finalLanguage: string | null = null;
+        let finalPrompt: string | null = clientPrompt;
+
+        // Backend Logic for Language modes
+        if (languageMode === "hi") {
+            finalLanguage = "hi";
+            if (!finalPrompt) finalPrompt = "Transcribe in Hindi using Devanagari script only.";
+        } else if (languageMode === "hinglish") {
+            finalLanguage = null; // Auto-detect for mixed speech
+            if (scriptOutput === "Romanized") {
+                finalPrompt = "Sabse pehle ye dekho, ye AI trend viral ho raha hai. Transcribe Hinglish speech mixing Hindi and English using ONLY Latin script (English letters). Write Hindi words as they are pronounced using English letters.";
+            } else if (!finalPrompt) {
+                finalPrompt = "Transcribe Hinglish speech mixing Hindi and English. Write Hindi in Devanagari and English in Latin. Keep terms like AI, GPT, OpenAI in English.";
+            }
+        } else if (languageMode === "en") {
+            finalLanguage = "en";
+        } else if (languageMode === "auto") {
+            finalLanguage = null;
+        }
 
         // Validate model
         const validModels = ["tiny", "base", "small", "medium"];
@@ -71,7 +94,7 @@ export async function POST(req: NextRequest) {
         });
 
         // Start transcription in background
-        runTranscription(job.id, inputPath, model, outputPath);
+        runTranscription(job.id, inputPath, model, outputPath, finalLanguage, finalPrompt, scriptOutput);
 
         return NextResponse.json({
             id: job.id,
@@ -107,12 +130,25 @@ export async function GET(req: NextRequest) {
 }
 
 // Background transcription process
-async function runTranscription(jobId: string, inputPath: string, model: string, outputPath: string) {
+async function runTranscription(
+    jobId: string,
+    inputPath: string,
+    model: string,
+    outputPath: string,
+    language?: string | null,
+    prompt?: string | null,
+    script?: string | null
+) {
     const pythonScript = path.join(process.cwd(), "transcriber", "transcribe.py");
 
     const pythonCommand = process.platform === "win32" ? "python" : "python3";
 
-    const child = spawn(pythonCommand, [pythonScript, inputPath, model, outputPath], {
+    const args = [pythonScript, inputPath, model, outputPath];
+    if (language && language !== "auto") args.push("--language", language);
+    if (prompt) args.push("--prompt", prompt);
+    if (script && script !== "Auto") args.push("--script", script);
+
+    const child = spawn(pythonCommand, args, {
         timeout: TRANSCRIPTION_TIMEOUT,
     });
 
