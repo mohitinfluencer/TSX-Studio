@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const {
         projectId,
         versionId,
+        code: customCode,
         format,
         quality,
         width: widthParam,
@@ -99,8 +100,8 @@ export async function POST(req: Request) {
     });
 
     // START REAL RENDERING (Fire and forget)
-    // We pass the code from the version
-    const code = project.versions[0].code;
+    // Use custom code if provided (unsaved changes), otherwise use version code
+    const code = customCode || project.versions[0].code;
 
     // We don't await this, so the API returns immediately
     renderProject(job.id, code, {

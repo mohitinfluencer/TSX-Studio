@@ -27,6 +27,7 @@ export async function renderProject(
     const ffprobe = ffprobeModule.path;
 
     console.log(`[RENDER JOB ${jobId}] Starting render for code length: ${userCode.length}`);
+    console.log(`[RENDER JOB ${jobId}] Code snippet: ${userCode.substring(0, 150)}...`);
 
     if (ffmpeg) {
         console.log("Using ffmpeg-static:", ffmpeg);

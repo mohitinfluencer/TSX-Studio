@@ -33,6 +33,7 @@ interface ExportDialogProps {
     height?: number;
     fps?: number;
     durationInFrames?: number;
+    code?: string;
 }
 
 export function ExportDialog({
@@ -43,7 +44,8 @@ export function ExportDialog({
     width = 1080,
     height = 1920,
     fps = 30,
-    durationInFrames = 300
+    durationInFrames = 300,
+    code = ""
 }: ExportDialogProps) {
     const [isExporting, setIsExporting] = useState(false);
 
@@ -99,6 +101,7 @@ export function ExportDialog({
                     height,
                     fps,
                     durationInFrames,
+                    code,
                 }),
             });
 

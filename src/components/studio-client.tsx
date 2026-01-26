@@ -614,6 +614,7 @@ export function StudioClient({
                         height={dimensions.height}
                         fps={dimensions.fps}
                         durationInFrames={dimensions.durationInFrames}
+                        code={code}
                     />
                 </div>
             </header>
