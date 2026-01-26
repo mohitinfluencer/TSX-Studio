@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
+import { cookies } from "next/headers";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(db),
@@ -19,7 +20,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     });
 
                     if (!dbUser) {
-                        // Create new user
+                        // 0. Check for referral cookie
+                        const cookieStore = await cookies();
+                        const refCode = cookieStore.get("tsx_referral_code")?.value;
+                        let referrer = null;
+
+                        if (refCode) {
+                            referrer = await db.referralCode.findUnique({
+                                where: { code: refCode },
+                                include: { user: true }
+                            });
+                        }
+
+                        // 1. Create new user
                         dbUser = await db.user.create({
                             data: {
                                 email: user.email,
@@ -28,24 +41,54 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                             },
                         });
 
-                        // Create default entitlement
+                        // 2. Initial rewards (Base 3 + Referral 2)
+                        const initialCredits = referrer ? 5 : 3;
+
+                        // 3. Create default entitlement
                         await db.userEntitlement.create({
                             data: {
                                 userId: dbUser.id,
                                 plan: "FREE",
-                                creditsBalance: 3,
+                                creditsBalance: initialCredits,
                                 monthlyCredits: 3,
                             },
                         });
 
-                        // Grant initial credits
+                        // 4. Grant initial credits transaction
                         await db.creditTransaction.create({
                             data: {
                                 userId: dbUser.id,
-                                type: "MONTHLY_GRANT",
-                                amount: 3,
+                                type: "INITIAL_GRANT",
+                                amount: initialCredits,
                             },
                         });
+
+                        // 5. If referred, handle referrer reward and logging
+                        if (referrer) {
+                            // Log the referral event
+                            await db.referralEvent.create({
+                                data: {
+                                    referrerId: referrer.userId,
+                                    referredUserId: dbUser.id,
+                                    status: "COMPLETED"
+                                }
+                            });
+
+                            // Reward the referrer (+5)
+                            await db.userEntitlement.update({
+                                where: { userId: referrer.userId },
+                                data: { creditsBalance: { increment: 5 } }
+                            });
+
+                            // Log transaction for referrer
+                            await db.creditTransaction.create({
+                                data: {
+                                    userId: referrer.userId,
+                                    type: "REFERRAL_REWARD",
+                                    amount: 5,
+                                },
+                            });
+                        }
                     }
 
                     token.sub = dbUser.id;

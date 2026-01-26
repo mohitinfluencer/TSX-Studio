@@ -23,14 +23,18 @@ export async function renderProject(
     const { renderMedia, selectComposition } = await import("@remotion/renderer");
     const ffmpegModule = await import("ffmpeg-static");
     const ffmpeg = ffmpegModule.default;
+    const ffprobeModule = await import("ffprobe-static");
+    const ffprobe = ffprobeModule.path;
 
     console.log(`[RENDER JOB ${jobId}] Starting render for code length: ${userCode.length}`);
-    console.log(`[RENDER JOB ${jobId}] Code prefix: ${userCode.substring(0, 100)}`);
 
     if (ffmpeg) {
         console.log("Using ffmpeg-static:", ffmpeg);
-        // Try setting env var as fallback
         process.env.FFMPEG_PATH = ffmpeg;
+    }
+    if (ffprobe) {
+        console.log("Using ffprobe-static:", ffprobe);
+        process.env.FFPROBE_PATH = ffprobe;
     }
 
     const jobDir = path.join(process.cwd(), ".remotion-builds", jobId);
@@ -56,10 +60,29 @@ export async function renderProject(
 
         // 3a. Create Tailwind-like CSS for common classes used in compositions
         const cssPath = path.join(jobDir, "styles.css");
+        // discovery of Tailwind arbitrary hex colors
+        const hexMatches = userCode.matchAll(/(bg|text|border|from|to|via)-\[#([0-9a-fA-F]{3,6})\]/g);
+        let dynamicTailwind = "";
+        const seen = new Set();
+        for (const match of hexMatches) {
+            const [full, type, hex] = match;
+            if (seen.has(full)) continue;
+            seen.add(full);
+            const className = full.replace(/\[/g, '\\[').replace(/\]/g, '\\]').replace(/#/g, '\\#');
+            let property = 'color';
+            if (type === 'bg') property = 'background-color';
+            if (type === 'border') property = 'border-color';
+
+            dynamicTailwind += `.${className} { ${property}: #${hex} !important; }\n`;
+        }
+
         const tailwindCss = `
 /* Core Reset */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+
+/* Dynamic Discovery */
+${dynamicTailwind}
 
 /* Flexbox Utilities */
 .flex { display: flex; }

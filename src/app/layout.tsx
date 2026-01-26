@@ -4,6 +4,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { SessionProvider } from "next-auth/react";
+import { ReferralTracker } from "@/components/referral-tracker";
+import { Suspense } from "react";
 
 const display = Outfit({
   subsets: ["latin"],
@@ -37,6 +39,9 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <div className="relative z-10">
+              <Suspense fallback={null}>
+                <ReferralTracker />
+              </Suspense>
               {children}
             </div>
             <Toaster position="top-right" theme="dark" closeButton />

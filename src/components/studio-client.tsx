@@ -51,7 +51,8 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
         if (!isValid || !iframeRef.current) return;
 
         // 1. Identify and Normalize the Export
-        let injection = code.replace(/import\s+.*?from\s+['"].*?['"];?/g, '');
+        // Use a more robust regex to strip all types of imports (multiline, etc.)
+        let injection = code.replace(/import\s+[\s\S]*?from\s+['"].*?['"];?/g, '');
 
         if (/export\s+default\s+function/.test(injection)) {
             injection = injection.replace(/export\s+default\s+function/, 'UserComp = function');
@@ -102,7 +103,9 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
             window.__frame = (window.__frame + 1) % duration;
             
             // Notify all useCurrentFrame instances
-            window.__listeners.forEach(l => l(window.__frame));
+            window.__listeners.forEach(l => {
+                try { l(window.__frame); } catch(e) {}
+            });
             
             // Use setTimeout for accurate FPS timing
             setTimeout(() => {
@@ -139,14 +142,17 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
             return outputRange[i] + progress * outputDiff;
           },
           spring: (props) => {
-            const { frame, fps = 30 } = props;
-            return Math.min(frame / 10, 1); 
+            const { frame, fps = 30, config = {} } = props;
+            // Basic spring simulation for preview
+            const progress = Math.min(frame / 15, 1);
+            return progress;
           },
           Easing: {
               bezier: () => (t) => t,
               in: (t) => t * t,
               out: (t) => t * (2 - t),
-              inOut: (t) => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t
+              inOut: (t) => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t,
+              ease: (t) => t < .5 ? 2 * t * t : -1 + (4 - 2 * t) * t
           },
           continueRender: () => {},
           delayRender: () => 123,
@@ -158,7 +164,8 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
                 return () => window.__listeners.delete(setFrame);
             }, []);
             return frame;
-          }
+          },
+          measureSpring: () => 1
         };
        ${videoConfigScript}
     </script>
@@ -177,7 +184,6 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         #root { 
-            /* Render at actual video dimensions - DO NOT SQUISH */
             width: ${width}px; 
             height: ${height}px; 
             flex-shrink: 0;
@@ -190,7 +196,6 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
             transform-origin: center center;
             transform: translate(-50%, -50%) scale(1);
         }
-        /* Remotion AbsoluteFill: absolute positioned, full size, with flex display */
         .absolute-fill { 
             position: absolute; 
             top: 0;
@@ -208,7 +213,7 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
     <div id="root"></div>
     <div id="error-box" style="display:none; color:#fca5a5; position:absolute; top:20px; left:20px; right:20px; white-space:pre-wrap; background:rgba(69, 10, 10, 0.9); padding:20px; border:1px solid #ef4444; border-radius: 8px; font-family:monospace; z-index:999;"></div>
     
-    <script type="text/babel" data-presets="env,react,typescript" data-type="module">
+    <script type="text/babel" data-presets="env,react,typescript">
         // --- REACT HOOKS ---
         const { useState, useEffect, useMemo, useRef, useCallback } = React;
         
@@ -216,9 +221,7 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
         const { random, interpolate, spring, Easing, staticFile, continueRender, delayRender, useCurrentFrame, useVideoConfig } = window.remotion;
 
         // --- REMOTION COMPONENT MOCKS ---
-        // AbsoluteFill - properly matches Remotion's behavior with flex display
         const AbsoluteFill = ({ children, className = '', style = {} }) => {
-            // Merge the base absolute-fill styles with any custom styles
             const mergedStyle = {
                 position: 'absolute',
                 top: 0,
@@ -237,7 +240,14 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
         const Sequence = ({ children, from = 0, durationInFrames }) => {
             const frame = useCurrentFrame();
             if (frame < from) return null;
-            if (durationInFrames && frame >= from + durationInFrames) return null;
+            if (durationInFrames !== undefined && frame >= (from + durationInFrames)) return null;
+            return <>{children}</>;
+        };
+
+        const Loop = ({ children, durationInFrames = 30 }) => {
+            const frame = useCurrentFrame();
+            const loopFrame = frame % durationInFrames;
+            // This is a simplification: we'd normally need a context provider for useCurrentFrame inside Loop
             return <>{children}</>;
         };
         
@@ -247,41 +257,49 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
         const Img = (props) => <img {...props} />;
 
         // --- USER CODE START ---
-        let UserComp; // Declare in scope
+        window.UserComp = null;
+        let UserComp = null; 
+        
         try {
             ${injection}
+            // If UserComp was set inside the injection, or if injection defined it globally
+            if (!UserComp && window.UserComp) UserComp = window.UserComp;
         } catch (err) {
+            console.error("Syntax/Eval Error:", err);
             document.getElementById('error-box').style.display = 'block';
             document.getElementById('error-box').innerText = "Syntax Error: " + err.message;
-            throw err;
+            window.parent.postMessage({ type: 'preview-error', error: err.message }, '*');
         }
         // --- USER CODE END ---
 
         // RENDER
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        
         try {
-             // Mount dynamically found component name
-             const ComponentToRender = ${componentName};
+             const ComponentToRender = UserComp;
              
              if (!ComponentToRender) {
-                // Check if it's undefined
-                throw new Error("Component is not defined. Ensure you have 'export default' in your code.");
+                if (typeof MyAnimation !== 'undefined') ComponentToRender = MyAnimation;
+                else if (typeof MyVideo !== 'undefined') ComponentToRender = MyVideo;
+                else if (typeof App !== 'undefined') ComponentToRender = App;
              }
 
-             // We wrap in AbsoluteFill to frame it
+             if (!ComponentToRender) {
+                throw new Error("No exported component found. Ensure you have 'export default function MyComponent() { ... }'");
+             }
+
+             const root = ReactDOM.createRoot(document.getElementById('root'));
              root.render(
                 <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
                     <ComponentToRender />
                 </div>
             );
         } catch (err) {
+            console.error("Render Error:", err);
             document.getElementById('error-box').style.display = 'block';
             document.getElementById('error-box').innerText = "Render Error: " + err.message;
+            window.parent.postMessage({ type: 'preview-error', error: err.message }, '*');
         }
     </script>
     <script>
-        // Scale the actual-size content to fit in the iframe
         function resize() {
             const root = document.getElementById('root');
             if (!root) return;
@@ -289,15 +307,14 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
             const contentHeight = ${height};
             const availableWidth = window.innerWidth;
             const availableHeight = window.innerHeight;
-            const scale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight);
+            if (!availableWidth || !availableHeight) return;
             
-            // Apply scale while maintaining the absolute center position
+            const scale = Math.min(availableWidth / contentWidth, availableHeight / contentHeight);
             root.style.transform = 'translate(-50%, -50%) scale(' + scale + ')';
             root.style.visibility = 'visible';
         }
         window.addEventListener('resize', resize);
-        // Multiple triggers to handle dynamic loading
-        setTimeout(resize, 0);
+        setInterval(resize, 1000); // Periodic check for container size changes
         setTimeout(resize, 100);
         setTimeout(resize, 500);
     </script>
@@ -311,9 +328,18 @@ function LivePreview({ code, isValid, width, height, fps = 30, durationInFrames 
         };
         window.addEventListener('message', handleMessage);
         return () => window.removeEventListener('message', handleMessage);
-    }, [code, isValid, width, height]);
+    }, [code, isValid, width, height, fps, durationInFrames]);
 
-    if (error) return <div className="text-red-500 p-4">{error}</div>;
+    if (error) return (
+        <div className="w-full h-full flex flex-col items-center justify-center p-8 bg-black text-red-500 font-mono text-xs overflow-auto">
+            <AlertCircle className="w-8 h-8 mb-4 opacity-50" />
+            <div className="max-w-md text-center">
+                <p className="font-bold mb-2 uppercase tracking-widest text-[10px]">Preview Component Failure</p>
+                <p className="opacity-80 italic">{error}</p>
+                <Button variant="ghost" size="sm" onClick={() => setError(null)} className="mt-4 text-[8px] uppercase tracking-widest hover:bg-white/5 border border-white/10">Retry Preview</Button>
+            </div>
+        </div>
+    );
 
     return (
         <iframe
@@ -459,6 +485,8 @@ export function StudioClient({
         setHasUnsavedChanges(newCode !== originalCode);
     };
 
+    const [validatedCode, setValidatedCode] = useState(code);
+
     const validateCode = useCallback(() => {
         setIsValidating(true);
         setValidationResult(null);
@@ -468,6 +496,7 @@ export function StudioClient({
             setIsValidating(false);
 
             if (res.ok) {
+                setValidatedCode(code);
                 toast.success("Validation passed!", {
                     description: "Ready for export node cluster."
                 });
@@ -640,7 +669,7 @@ export function StudioClient({
                                 >
                                     <LivePreview
                                         key={`${dimensions.width}-${dimensions.height}-${dimensions.durationInFrames}`}
-                                        code={code}
+                                        code={validatedCode}
                                         isValid={validationResult.valid}
                                         width={dimensions.width}
                                         height={dimensions.height}
