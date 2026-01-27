@@ -2,22 +2,21 @@ import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
-import { cookies } from "next/headers";
 import { validateEnv } from "@/lib/env";
 
+// Validate env vars at runtime
 validateEnv();
-
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(db),
     session: { strategy: "jwt" },
     trustHost: true,
-    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
+    secret: process.env.AUTH_SECRET,
     ...authConfig,
     callbacks: {
         ...authConfig.callbacks,
         async jwt({ token, user, account }) {
-            // On first sign in, user object is available
+            // On initial sign in, user object is available
             if (user) {
                 // For credentials login, create user if doesn't exist
                 if (account?.provider === "credentials" && user.email) {
@@ -26,24 +25,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     });
 
                     if (!dbUser) {
-                        // 0. Check for referral cookie
-                        let refCode = null;
-                        try {
-                            const cookieStore = await cookies();
-                            refCode = cookieStore.get("tsx_referral_code")?.value;
-                        } catch (e) {
-                            // Ignore cookie failure in JWT callback
-                        }
-                        let referrer = null;
-
-                        if (refCode) {
-                            referrer = await db.referralCode.findUnique({
-                                where: { code: refCode },
-                                include: { user: true }
-                            });
-                        }
-
-                        // 1. Create new user
+                        // Create basic user without password for credentials provider (identifier usage)
                         dbUser = await db.user.create({
                             data: {
                                 email: user.email,
@@ -52,54 +34,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                             },
                         });
 
-                        // 2. Initial rewards (Base 3 + Referral 2)
-                        const initialCredits = referrer ? 5 : 3;
-
-                        // 3. Create default entitlement
+                        // Give default entitlement
                         await db.userEntitlement.create({
                             data: {
                                 userId: dbUser.id,
-                                plan: "FREE",
-                                creditsBalance: initialCredits,
-                                monthlyCredits: 3,
-                            },
+                                creditsBalance: 3,
+                            }
                         });
 
-                        // 4. Grant initial credits transaction
+                        // Initial transaction
                         await db.creditTransaction.create({
                             data: {
                                 userId: dbUser.id,
                                 type: "INITIAL_GRANT",
-                                amount: initialCredits,
-                            },
+                                amount: 3,
+                            }
                         });
-
-                        // 5. If referred, handle referrer reward and logging
-                        if (referrer) {
-                            // Log the referral event
-                            await db.referralEvent.create({
-                                data: {
-                                    referrerId: referrer.userId,
-                                    referredUserId: dbUser.id,
-                                    status: "COMPLETED"
-                                }
-                            });
-
-                            // Reward the referrer (+5)
-                            await db.userEntitlement.update({
-                                where: { userId: referrer.userId },
-                                data: { creditsBalance: { increment: 5 } }
-                            });
-
-                            // Log transaction for referrer
-                            await db.creditTransaction.create({
-                                data: {
-                                    userId: referrer.userId,
-                                    type: "REFERRAL_REWARD",
-                                    amount: 5,
-                                },
-                            });
-                        }
                     }
 
                     token.sub = dbUser.id;
@@ -112,6 +62,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         async session({ session, token }) {
             if (token.sub && session.user) {
                 session.user.id = token.sub;
+                session.user.name = token.name;
+                session.user.email = token.email as string;
             }
             return session;
         },

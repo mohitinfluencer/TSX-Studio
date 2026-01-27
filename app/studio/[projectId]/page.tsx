@@ -1,4 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { auth } from "@/auth";
+
 import { db } from "@/lib/db";
 import { redirect, notFound } from "next/navigation";
 import { StudioClient } from "@/components/studio-client";

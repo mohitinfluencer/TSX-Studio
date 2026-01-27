@@ -1,4 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { auth } from "@/auth";
+
 import { redirect } from "next/navigation";
 import { MarketplaceClient } from "./marketplace-client";
 

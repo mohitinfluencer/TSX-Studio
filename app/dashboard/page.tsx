@@ -1,7 +1,8 @@
 export const dynamic = "force-dynamic";
 
-import { auth } from "@/auth";
+import { Suspense } from "react";
 
+import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { DashboardClient } from "./dashboard-client";
@@ -69,10 +70,13 @@ export default async function DashboardPage() {
     };
 
     return (
-        <DashboardClient
-            projects={serializedProjects}
-            stats={stats}
-            userName={session.user.name || session.user.email || "User"}
-        />
+        <Suspense fallback={<div>Loading Dashboard...</div>}>
+            <DashboardClient
+                projects={serializedProjects}
+                stats={stats}
+                userName={session.user.name || session.user.email || "User"}
+            />
+        </Suspense>
     );
 }
+
