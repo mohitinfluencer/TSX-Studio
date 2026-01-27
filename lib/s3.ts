@@ -10,11 +10,12 @@ const s3Client = new S3Client({
     },
 });
 
-const BUCKET_NAME = process.env.AWS_S_BUCKET || "";
+const BUCKET_NAME = process.env.AWS_S3_BUCKET || "";
 
 export const getUploadUrl = async (key: string, contentType: string) => {
     const command = new PutObjectCommand({
         Bucket: BUCKET_NAME,
+
         Key: key,
         ContentType: contentType,
     });
