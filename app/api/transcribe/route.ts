@@ -2,9 +2,9 @@ export const runtime = "nodejs";
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { transcribeQueue } from "@/lib/queue";
 import { NextResponse } from "next/server";
 
+// This endpoint now only provides instructions for local transcription
 export async function POST(req: Request) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -15,42 +15,22 @@ export async function POST(req: Request) {
         storageKey,
         fileName,
         model = "base",
-        languageMode,
-        scriptOutput,
-        prompt
     } = await req.json();
-
-    if (!storageKey) {
-        return NextResponse.json({ error: "Storage key required. Upload to S3 first." }, { status: 400 });
-    }
 
     const job = await db.transcriptionJob.create({
         data: {
             userId: session.user.id,
             fileName: fileName || "unnamed_media",
-            filePath: storageKey,
+            filePath: storageKey || "local_path",
             model: model || "base",
-            status: "QUEUED",
+            status: "LOCAL_READY",
         },
-    });
-
-    // ENQUEUE ONLY - DO NOT RUN WHISPER IN SERVERLESS
-    await transcribeQueue.add("transcribe", {
-        jobId: job.id,
-        userId: session.user.id,
-        storageKey,
-        options: {
-            model,
-            languageMode,
-            scriptOutput,
-            prompt
-        }
     });
 
     return NextResponse.json({
         id: job.id,
-        status: "QUEUED",
-        message: "Transcription job dispatched to specialized compute node.",
+        status: "LOCAL_READY",
+        message: "Transcription ready for local processing. Use 'tsx-studio transcribe'.",
     });
 }
 
@@ -65,4 +45,28 @@ export async function GET() {
     });
 
     return NextResponse.json(jobs);
+}
+
+// Support for CLI to push results back
+export async function PUT(req: Request) {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return new NextResponse("Unauthorized", { status: 401 });
+
+    const { jobId, jsonOutput, status } = await req.json();
+
+    const job = await db.transcriptionJob.findUnique({
+        where: { id: jobId }
+    });
+
+    if (job) {
+        await db.transcriptionJob.update({
+            where: { id: jobId },
+            data: {
+                status: status || "DONE",
+                jsonOutput: JSON.stringify(jsonOutput),
+            },
+        });
+    }
+
+    return NextResponse.json({ success: true });
 }
