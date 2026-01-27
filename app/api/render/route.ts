@@ -1,7 +1,12 @@
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { auth } from "@/auth";
+
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { renderProject } from "@/lib/render-service";
+
+
 
 export async function POST(req: Request) {
     const session = await auth();
@@ -104,6 +109,7 @@ export async function POST(req: Request) {
     const code = customCode || project.versions[0].code;
 
     // We don't await this, so the API returns immediately
+    const { renderProject } = await import("@/lib/render-service");
     renderProject(job.id, code, {
         width,
         height,
@@ -117,6 +123,7 @@ export async function POST(req: Request) {
         message: "Render job queued successfully",
     });
 }
+
 
 
 export async function GET(req: Request) {
