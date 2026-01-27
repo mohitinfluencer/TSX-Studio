@@ -153,39 +153,31 @@ TSX Studio is a SaaS web application for creating, previewing, and exporting cod
 
 ### 4.1 Export Dialog
 
-**Status: 🟡 UI Only**
+**Status: 🟢 Working**
 
-- **File**: `src/components/export-dialog.tsx`
-- **Tasks**:
-  - [ ] Connect to `/api/render` endpoint
-  - [ ] Show credit cost before export
-  - [ ] Handle insufficient credits error
-  - [ ] Navigate to exports page after submission
+- **Implemented**:
+  - Direct S3 pre-signed URL uploads for media
+  - Job enqueuing to BullMQ
+  - Credit deduction before processing
 
 ### 4.2 Render Queue System
 
-**Status: 🟡 Skeleton Only**
+**Status: 🟢 Production Ready**
 
-- **Files**: `src/lib/queue.ts`, `src/app/api/render/route.ts`
-- **Dependencies**: Redis (via Docker or cloud)
-- **Tasks**:
-  - [ ] Set up Redis locally or use Upstash
-  - [ ] Create render worker process
-  - [ ] Integrate Remotion CLI for actual rendering
-  - [ ] Update job status (QUEUED → RUNNING → SUCCEEDED/FAILED)
-  - [ ] Store output URL and file size
+- **Infrastructure**: Redis (BullMQ Hub) + Standalone Worker
+- **Logic**:
+  - Vercel only handles enqueuing (`Accepted 202`)
+  - Standalone Node.js worker handles Remotion + Whisper
+  - Full error reporting to database on failure
 
 ### 4.3 Exports Page
 
-**Status: 🟡 Needs Auth**
+**Status: 🟢 Working**
 
-- **File**: `src/app/exports/page.tsx`
-- **Tasks**:
-  - [ ] Ensure auth works
-  - [ ] Display real job list from database
-  - [ ] Add download button for completed jobs
-  - [ ] Add re-render button for failed jobs
-  - [ ] Real-time status polling
+- **Implemented**:
+  - Real-time status polling of database
+  - S3 links for downloading finished videos
+  - Clear error visibility if background jobs fail
 
 ---
 

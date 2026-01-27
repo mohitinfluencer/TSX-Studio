@@ -1,0 +1,24 @@
+{
+    "name": "tsx-studio-worker",
+    "version": "1.0.0",
+    "description": "Standalone worker for TSX Studio heavy compute",
+    "main": "index.ts",
+    "scripts": {
+        "start": "ts-node index.ts",
+        "dev": "ts-node-dev --respawn --transpile-only index.ts"
+    },
+    "dependencies": {
+        "@auth/prisma-adapter": "^2.0.0",
+        "@aws-sdk/client-s3": "^3.0.0",
+        "@aws-sdk/s3-request-presigner": "^3.0.0",
+        "@prisma/client": "^6.0.0",
+        "@remotion/bundler": "^4.0.0",
+        "@remotion/renderer": "^4.0.0",
+        "bullmq": "^5.0.0",
+        "dotenv": "^16.0.0",
+        "ffmpeg-static": "^5.0.0",
+        "ioredis": "^5.0.0",
+        "ts-node": "^10.0.0",
+        "typescript": "^5.0.0"
+    }
+}
