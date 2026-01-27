@@ -83,3 +83,4 @@ The first transcription downloads the Whisper model (~75MB to 1.5GB depending on
 - **"FFmpeg not found"**: Ensure `ffmpeg-static` is installed or system FFmpeg is in PATH.
 - **"Render Failed"**: Check server console logs for detailed Remotion error output.
 - **"Transcription Failed"**: Ensure Python is installed and faster-whisper is set up correctly.
+ 
