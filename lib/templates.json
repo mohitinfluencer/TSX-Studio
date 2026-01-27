@@ -1,0 +1,35 @@
+[
+    {
+        "id": "viral-captions",
+        "name": "Viral Captions",
+        "description": "Multi-line dynamic captions with pop animations.",
+        "type": "Overlay",
+        "code": "import React from 'react';\nimport { AbsoluteFill } from 'remotion';\n\nexport default function ViralCaptions() {\n  return (\n    <AbsoluteFill className=\"bg-slate-900 flex items-center justify-center\">\n      <h1 className=\"text-6xl font-bold text-white tracking-tight\">\n        Viral Captions Template\n      </h1>\n    </AbsoluteFill>\n  );\n}",
+        "tags": [
+            "Social Media",
+            "Video"
+        ]
+    },
+    {
+        "id": "word-highlight",
+        "name": "Word Highlight",
+        "description": "Sync captions where each word pops as it is spoken.",
+        "type": "Captions",
+        "code": "// Word highlight code...",
+        "tags": [
+            "Dynamic",
+            "Text"
+        ]
+    },
+    {
+        "id": "lower-third",
+        "name": "Modern Lower Third",
+        "description": "Professional glassmorphic identification bars.",
+        "type": "Overlay",
+        "code": "// Lower third code...",
+        "tags": [
+            "Professional",
+            "Identity"
+        ]
+    }
+]
