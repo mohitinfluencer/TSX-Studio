@@ -1,15 +1,9 @@
 import { PrismaClient } from "@prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
-import type { Config } from "@libsql/client";
-
-// Use the DATABASE_URL from environment or default path
-const libsqlConfig: Config = {
-  url: process.env.DATABASE_URL || "file:prisma/dev.db",
-};
-
-const adapter = new PrismaLibSql(libsqlConfig);
+import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 
 const prismaClientSingleton = () => {
+  const dbPath = process.env.DATABASE_URL?.replace("file:", "") || "prisma/dev.db";
+  const adapter = new PrismaBetterSqlite3({ url: dbPath });
   return new PrismaClient({ adapter });
 };
 

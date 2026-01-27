@@ -21,8 +21,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
                     if (!dbUser) {
                         // 0. Check for referral cookie
-                        const cookieStore = await cookies();
-                        const refCode = cookieStore.get("tsx_referral_code")?.value;
+                        let refCode = null;
+                        try {
+                            const cookieStore = await cookies();
+                            refCode = cookieStore.get("tsx_referral_code")?.value;
+                        } catch (e) {
+                            // Ignore cookie failure in JWT callback
+                        }
                         let referrer = null;
 
                         if (refCode) {

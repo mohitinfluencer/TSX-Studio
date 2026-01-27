@@ -569,7 +569,10 @@ export function StudioClient({
             setCode(content);
             setHasUnsavedChanges(true);
             toast.success(`Loaded: ${file.name}`);
-            setActiveTab("editor"); // Redirect to editor tab
+            // Small delay to ensure state update propagates before tab switch
+            setTimeout(() => {
+                setActiveTab("editor");
+            }, 100);
         };
         reader.readAsText(file);
         e.target.value = '';
@@ -717,13 +720,22 @@ export function StudioClient({
                             )}
                             <TabsTrigger value="upload" className="text-[10px] uppercase font-bold tracking-wider data-[state=active]:bg-white/5">Upload</TabsTrigger>
                         </TabsList>
-                        <TabsContent value="editor" className="flex-1 m-0">
+                        <TabsContent value="editor" className="flex-1 m-0" forceMount style={{ display: activeTab === 'editor' ? 'flex' : 'none', flex: 1 }}>
                             <Editor
+                                key={`editor-${code.length}`}
                                 height="100%"
                                 defaultLanguage="typescript"
                                 theme="vs-dark"
                                 value={code}
                                 onChange={handleCodeChange}
+                                loading={
+                                    <div className="w-full h-full flex items-center justify-center bg-[#1e1e1e]">
+                                        <div className="text-center">
+                                            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                                            <p className="text-xs text-muted-foreground">Initializing Editor...</p>
+                                        </div>
+                                    </div>
+                                }
                                 options={{
                                     minimap: { enabled: false },
                                     fontSize: 13,
