@@ -90,7 +90,7 @@ async function processRenderJob(job: Job) {
             codec: renderJob.outputFormat === "MOV" ? "prores" : "h264",
             outputLocation: outputFilePath,
             ffmpegExecutable: ffmpeg || undefined,
-            onProgress: ({ progress }) => {
+            onProgress: ({ progress }: { progress: number }) => {
                 const p = 20 + Math.floor(progress * 70);
                 job.updateProgress(p);
                 // Throttle DB updates to avoid overwhelming SQLite

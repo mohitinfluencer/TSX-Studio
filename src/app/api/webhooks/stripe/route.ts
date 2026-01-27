@@ -5,6 +5,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 export async function POST(req: Request) {
+    // Check if Stripe is configured
+    if (!stripe) {
+        return new NextResponse("Stripe is not configured", { status: 503 });
+    }
+
     const body = await req.text();
     const signature = (await headers()).get("Stripe-Signature") as string;
 
@@ -76,3 +81,4 @@ export async function POST(req: Request) {
 
     return new NextResponse(null, { status: 200 });
 }
+
