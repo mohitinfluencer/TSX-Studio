@@ -13,7 +13,7 @@ A high-performance, web-based animation studio powered by Remotion. **Status: Al
 ## Prerequisites
 
 - **Node.js**: v18+
-- **Database**: SQLite (default) or PostgreSQL.
+- **Database**: PostgreSQL (Neon).
 - **FFmpeg**: Required for rendering videos.
   - The project attempts to use `ffmpeg-static` automatically.
   - If you encounter issues, install FFmpeg system-wide:
@@ -47,7 +47,7 @@ A high-performance, web-based animation studio powered by Remotion. **Status: Al
 
 ## Architecture
 
-- **Frontend**: Next.js 14, TailwindCSS, Shadcn UI.
+- **Frontend**: Next.js 15, TailwindCSS, Shadcn UI.
 - **Backend**: Next.js API Routes, Remotion Bundler/Renderer.
 - **Storage**: Local filesystem for dev (`public/exports`), S3 for production.
 
@@ -83,4 +83,3 @@ The first transcription downloads the Whisper model (~75MB to 1.5GB depending on
 - **"FFmpeg not found"**: Ensure `ffmpeg-static` is installed or system FFmpeg is in PATH.
 - **"Render Failed"**: Check server console logs for detailed Remotion error output.
 - **"Transcription Failed"**: Ensure Python is installed and faster-whisper is set up correctly.
- 

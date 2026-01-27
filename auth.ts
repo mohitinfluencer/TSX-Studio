@@ -3,6 +3,10 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
 import { cookies } from "next/headers";
+import { validateEnv } from "@/lib/env";
+
+validateEnv();
+
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(db),

@@ -93,7 +93,7 @@ async function processRenderJob(job: Job) {
             onProgress: ({ progress }: { progress: number }) => {
                 const p = 20 + Math.floor(progress * 70);
                 job.updateProgress(p);
-                // Throttle DB updates to avoid overwhelming SQLite
+                // Throttle DB updates to avoid overwhelming Neon/PostgreSQL
                 if (p % 10 === 0) {
                     db.renderJob.update({
                         where: { id: jobId },
