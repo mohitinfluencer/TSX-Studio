@@ -1,4 +1,7 @@
+export const runtime = "nodejs";
+
 import { db } from "@/lib/db";
+
 import { stripe } from "@/lib/stripe";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";

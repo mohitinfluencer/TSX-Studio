@@ -1,4 +1,7 @@
+export const runtime = "nodejs";
+
 import { auth } from "@/auth";
+
 import { db } from "@/lib/db";
 import { NextResponse, NextRequest } from "next/server";
 import { writeFile, mkdir, unlink, readFile } from "fs/promises";
