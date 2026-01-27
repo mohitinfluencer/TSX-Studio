@@ -1,2 +1,0 @@
-faster-whisper>=1.0.0
-aksharamukha>=1.0.0
