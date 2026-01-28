@@ -12,6 +12,7 @@ import {
 
 const App: React.FC = () => {
     const [systemInfo, setSystemInfo] = useState<any>(null);
+    const [showNotice, setShowNotice] = useState(false);
 
     useEffect(() => {
         const fetchInfo = async () => {
@@ -21,7 +22,20 @@ const App: React.FC = () => {
             }
         };
         fetchInfo();
+
+        // Check for first-run notice
+        const hasSeenNotice = localStorage.getItem('tsx-has-seen-notice');
+        if (!hasSeenNotice) {
+            setShowNotice(true);
+        }
     }, []);
+
+    const dismissNotice = (permanently = false) => {
+        if (permanently) {
+            localStorage.setItem('tsx-has-seen-notice', 'true');
+        }
+        setShowNotice(false);
+    };
 
     return (
         <div className="min-h-screen bg-[#050505] text-white p-8 font-sans selection:bg-blue-500/30">
@@ -128,6 +142,47 @@ const App: React.FC = () => {
                         Handcrafted for Professional Video Automation
                     </p>
                 </footer>
+
+                {/* First-time Windows Notice Modal */}
+                {showNotice && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+                        <div className="bg-[#0A0A0B] border border-white/10 rounded-[32px] p-8 max-w-sm w-full shadow-2xl space-y-6">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
+                                    <ShieldCheck className="w-6 h-6 text-blue-400" />
+                                </div>
+                                <h3 className="text-xl font-black italic tracking-tight uppercase leading-none">First-time <br /> Notice</h3>
+                            </div>
+
+                            <div className="space-y-4">
+                                <p className="text-[13px] text-white/60 leading-relaxed font-medium">
+                                    Windows may show a security prompt for new apps.
+                                    <span className="text-white font-bold ml-1">TSX Studio runs fully offline</span> and does not access your data.
+                                </p>
+                                <div className="bg-white/[0.03] rounded-xl p-4 border border-white/5">
+                                    <p className="text-[10px] font-medium text-blue-400/80 leading-relaxed">
+                                        Click <span className="text-white font-bold">"More info"</span> → <span className="text-white font-bold">"Run anyway"</span> to continue safely.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="pt-2 flex flex-col gap-2">
+                                <button
+                                    onClick={() => dismissNotice(true)}
+                                    className="w-full h-12 bg-white text-black font-black italic uppercase text-[10px] tracking-widest rounded-xl hover:bg-neutral-200 transition-all active:scale-95"
+                                >
+                                    Don't show this again
+                                </button>
+                                <button
+                                    onClick={() => dismissNotice(false)}
+                                    className="w-full h-10 bg-transparent text-white/40 font-bold uppercase text-[9px] tracking-widest rounded-xl hover:text-white transition-colors"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

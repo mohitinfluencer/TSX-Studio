@@ -102,12 +102,27 @@ export default function DownloadPage() {
                                     VIEW SOURCE
                                 </Button>
                             </div>
-                            <div className="px-2">
+                            <div className="px-2 space-y-3">
                                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/50 flex items-center gap-2">
                                     <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                                     {hasTriggered ? "Download Initiated" : "Auto-downloading for your system..."}
                                     <span className="text-white/20 ml-2">— If it doesn't start, click the button above.</span>
                                 </p>
+
+                                {os === "windows" && (
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 2 }}
+                                        className="bg-primary/5 border border-primary/10 rounded-xl p-3 flex items-start gap-3"
+                                    >
+                                        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                                        <p className="text-[10px] leading-relaxed text-white/40 font-medium">
+                                            Windows may show a security warning for new apps. <br />
+                                            Click <span className="text-white/60 font-bold">"More info"</span> → <span className="text-white/60 font-bold">"Run anyway"</span> to install safely.
+                                        </p>
+                                    </motion.div>
+                                )}
                             </div>
                         </motion.div>
 
