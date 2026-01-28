@@ -7,9 +7,12 @@ const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
 const render_1 = require("./engine/render");
 const system_check_1 = require("./engine/system-check");
+const transcribe_1 = require("./engine/transcribe");
 const fs_extra_1 = __importDefault(require("fs-extra"));
 let mainWindow = null;
 const isDev = !electron_1.app.isPackaged && process.env.NODE_ENV === 'development';
+let userToken = null;
+let pendingToken = null;
 // 1. Register Custom Protocol (Deep Linking)
 if (process.defaultApp) {
     if (process.argv.length >= 2) {
@@ -31,11 +34,14 @@ function handleAuthProtocol(url) {
             const token = urlObj.searchParams.get('token');
             if (token) {
                 console.log('Successfully extracted auth token via protocol');
-                if (mainWindow) {
+                if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
                     mainWindow.webContents.send('auth-success', token);
                     mainWindow.focus();
                 }
-                // Also store it for safety
+                else {
+                    // Page not ready or loading, store for later retrieval by the renderer
+                    pendingToken = token;
+                }
                 userToken = token;
             }
         }
@@ -96,7 +102,7 @@ function createWindow() {
         },
     });
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5173'); // Updated to vite default port if renderer is separate, but main.ts was 3000
+        mainWindow.loadURL('http://localhost:5173');
     }
     else {
         const prodUrl = 'https://tsx-studio-v2.vercel.app';
@@ -140,12 +146,28 @@ electron_1.ipcMain.handle('render-project', async (event, options) => {
         return { success: false, error: error.message };
     }
 });
-let userToken = null;
+electron_1.ipcMain.handle('transcribe-media', async (event, options) => {
+    try {
+        const result = await (0, transcribe_1.transcribeAudio)({
+            ...options,
+            onProgress: (p) => event.sender.send('transcribe-progress', p),
+            onLog: (l) => event.sender.send('transcribe-log', l),
+        });
+        return { success: true, transcription: result };
+    }
+    catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+electron_1.ipcMain.handle('get-pending-token', () => {
+    const token = pendingToken;
+    pendingToken = null;
+    return token;
+});
 electron_1.ipcMain.handle('save-token', (_, token) => { userToken = token; });
 electron_1.ipcMain.handle('get-token', () => { return userToken; });
 electron_1.ipcMain.handle('open-path', (_, path) => { electron_1.shell.showItemInFolder(path); });
 electron_1.ipcMain.handle('login', async () => {
-    // UPDATED: Now points to the web app's desktop auth endpoint
     const authUrl = 'https://tsx-studio-v2.vercel.app/api/auth/desktop';
     await electron_1.shell.openExternal(authUrl);
 });

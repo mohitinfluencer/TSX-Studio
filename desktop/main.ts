@@ -8,6 +8,9 @@ import fs from 'fs-extra';
 let mainWindow: BrowserWindow | null = null;
 const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';
 
+let userToken: string | null = null;
+let pendingToken: string | null = null;
+
 // 1. Register Custom Protocol (Deep Linking)
 if (process.defaultApp) {
     if (process.argv.length >= 2) {
@@ -29,11 +32,13 @@ function handleAuthProtocol(url: string) {
             const token = urlObj.searchParams.get('token');
             if (token) {
                 console.log('Successfully extracted auth token via protocol');
-                if (mainWindow) {
+                if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
                     mainWindow.webContents.send('auth-success', token);
                     mainWindow.focus();
+                } else {
+                    // Page not ready or loading, store for later retrieval by the renderer
+                    pendingToken = token;
                 }
-                // Also store it for safety
                 userToken = token;
             }
         }
@@ -99,7 +104,7 @@ function createWindow() {
     });
 
     if (isDev) {
-        mainWindow.loadURL('http://localhost:5173'); // Updated to vite default port if renderer is separate, but main.ts was 3000
+        mainWindow.loadURL('http://localhost:5173');
     } else {
         const prodUrl = 'https://tsx-studio-v2.vercel.app';
         mainWindow.loadURL(prodUrl).catch(() => {
@@ -147,13 +152,30 @@ ipcMain.handle('render-project', async (event, options) => {
     }
 });
 
-let userToken: string | null = null;
+ipcMain.handle('transcribe-media', async (event, options) => {
+    try {
+        const result = await transcribeAudio({
+            ...options,
+            onProgress: (p) => event.sender.send('transcribe-progress', p),
+            onLog: (l) => event.sender.send('transcribe-log', l),
+        });
+        return { success: true, transcription: result };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-pending-token', () => {
+    const token = pendingToken;
+    pendingToken = null;
+    return token;
+});
+
 ipcMain.handle('save-token', (_, token) => { userToken = token; });
 ipcMain.handle('get-token', () => { return userToken; });
 ipcMain.handle('open-path', (_, path) => { shell.showItemInFolder(path); });
 
 ipcMain.handle('login', async () => {
-    // UPDATED: Now points to the web app's desktop auth endpoint
     const authUrl = 'https://tsx-studio-v2.vercel.app/api/auth/desktop';
     await shell.openExternal(authUrl);
 });

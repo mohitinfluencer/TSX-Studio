@@ -19,11 +19,21 @@ export function DesktopStatus() {
                 const info = await (window as any).electronAPI.checkSystem();
                 setSystemInfo(info);
 
-                // Listen for professional OAuth callback
-                (window as any).electronAPI.onAuthSuccess((token: string) => {
-                    console.log("Desktop OAuth Success, syncing session...");
-                    // Redirect to the token-login bridge to establish the session
+                const handleLoginAction = (token: string) => {
+                    console.log("Processing Desktop OAuth...");
                     window.location.href = `/api/auth/token-login?token=${token}`;
+                };
+
+                // 1. Check for missed/pending tokens (startup/reload)
+                const pending = await (window as any).electronAPI.getPendingToken();
+                if (pending) {
+                    handleLoginAction(pending);
+                    return;
+                }
+
+                // 2. Listen for live protocol callbacks
+                (window as any).electronAPI.onAuthSuccess((token: string) => {
+                    handleLoginAction(token);
                 });
             }
         };

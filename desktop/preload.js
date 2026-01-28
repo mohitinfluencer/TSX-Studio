@@ -13,5 +13,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onTranscribeProgress: (callback) => ipcRenderer.on('transcribe-progress', (_event, value) => callback(value)),
     onTranscribeLog: (callback) => ipcRenderer.on('transcribe-log', (_event, value) => callback(value)),
     onAuthSuccess: (callback) => ipcRenderer.on('auth-success', (_event, value) => callback(value)),
+    getPendingToken: () => ipcRenderer.invoke('get-pending-token'),
     installWhisperEngine: () => ipcRenderer.invoke('install-whisper-engine'),
 });
