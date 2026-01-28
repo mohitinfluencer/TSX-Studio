@@ -15,7 +15,8 @@ function createWindow() {
     mainWindow = new electron_1.BrowserWindow({
         width: 1400,
         height: 900,
-        titleBarStyle: 'hidden',
+        // Restored standard Windows title bar for minimize/maximize/close buttons
+        title: 'TSX Studio',
         icon: path_1.default.join(rootPath, 'logo.jpg'),
         show: false,
         backgroundColor: '#000000',
@@ -29,23 +30,18 @@ function createWindow() {
             webSecurity: false
         },
     });
-    // PIVOT: Load the Full Studio UI
-    // In Dev, we load localhost. In Production, we load the live hosted Studio.
     if (isDev) {
         mainWindow.loadURL('http://localhost:3000');
     }
     else {
-        // Replace with your actual production URL
         const prodUrl = 'https://tsx-studio-v2.vercel.app';
         mainWindow.loadURL(prodUrl).catch(() => {
-            // Fallback to local dashboard if internet is down
             mainWindow?.loadFile(path_1.default.join(rootPath, 'dist-renderer', 'index.html'));
         });
     }
     mainWindow.once('ready-to-show', () => {
         mainWindow?.show();
     });
-    // Keep DevTools hidden in production for a clean look
     if (!isDev) {
         mainWindow.webContents.on('devtools-opened', () => {
             mainWindow?.webContents.closeDevTools();
