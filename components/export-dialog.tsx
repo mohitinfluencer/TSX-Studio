@@ -225,7 +225,7 @@ export function ExportDialog({
                                 </p>
                             </div>
                             <Button
-                                onClick={() => window.open('https://tsx-studio.vercel.app/download', '_blank')}
+                                onClick={() => window.open('/download', '_blank')}
                                 className="w-full h-14 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95"
                             >
                                 DOWNLOAD DESKTOP APP
