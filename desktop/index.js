@@ -3,8 +3,8 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * TSX STUDIO - PRODUCTION BOOTSTRAP
- * Discovers and "Unlocks" native binaries from the ASAR archive.
+ * TSX STUDIO - HARDENED PRODUCTION BOOTSTRAP
+ * This is the ultimate "Unlock" for native Windows binaries.
  */
 
 if (app.isPackaged) {
@@ -12,32 +12,31 @@ if (app.isPackaged) {
     const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
     const unpackedNodeModules = path.join(unpackedPath, 'node_modules');
 
-    // 1. Unlocked Compositor (Rust Engine)
-    // Pointing to the node_modules folder allows Remotion to find @remotion/compositor-*
-    if (fs.existsSync(unpackedNodeModules)) {
-        process.env.REMOTION_COMPOSITOR_BINARY_PATH = unpackedNodeModules;
+    // 1. Force-Unlock Remotion Compositor (The Render Engine)
+    // We point directly to the package folder where remotion.exe lives
+    const compositorPkg = path.join(unpackedNodeModules, '@remotion', 'compositor-win32-x64-msvc');
+    if (fs.existsSync(compositorPkg)) {
+        process.env.REMOTION_COMPOSITOR_BINARY_PATH = compositorPkg;
     }
 
-    // 2. Unlocked Bundler (esbuild)
-    const esbuildPath = path.join(unpackedNodeModules, 'esbuild', 'esbuild.exe');
-    const esbuildWinPath = path.join(unpackedNodeModules, '@esbuild', 'win32-x64', 'esbuild.exe');
-
-    if (fs.existsSync(esbuildWinPath)) {
-        process.env.ESBUILD_BINARY_PATH = esbuildWinPath;
-    } else if (fs.existsSync(esbuildPath)) {
+    // 2. Force-Unlock esbuild (The Project Builder)
+    const esbuildPath = path.join(unpackedNodeModules, '@esbuild', 'win32-x64', 'esbuild.exe');
+    if (fs.existsSync(esbuildPath)) {
         process.env.ESBUILD_BINARY_PATH = esbuildPath;
     }
 
-    // 3. Unlocked Media Engine (FFmpeg)
+    // 3. Force-Unlock FFmpeg (The Video Encoder)
     const ffmpegPath = path.join(unpackedNodeModules, 'ffmpeg-static', 'ffmpeg.exe');
     const ffprobePath = path.join(unpackedNodeModules, 'ffprobe-static', 'bin', 'win32', 'x64', 'ffprobe.exe');
 
     if (fs.existsSync(ffmpegPath)) process.env.FFMPEG_BINARY = ffmpegPath;
     if (fs.existsSync(ffprobePath)) process.env.FFPROBE_BINARY = ffprobePath;
 
-    // 4. Critical: Disable sandbox for child processes
-    // This removes the "Permission" blocks and "ENOENT" spawn errors.
+    // 4. Disable Security Sandbox
+    // This is required for Electron to let these tools "talk" to each other
     process.env.ELECTRON_DISABLE_SANDBOX = '1';
+    app.commandLine.appendSwitch('no-sandbox');
+    app.commandLine.appendSwitch('disable-gpu-sandbox');
 }
 
 const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';

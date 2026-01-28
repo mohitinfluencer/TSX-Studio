@@ -55,11 +55,17 @@ async function renderProject(options) {
     const cssPath = path_1.default.join(tempDir, 'styles.css');
     const outputPath = path_1.default.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
     try {
-        await log('ENVIRONMENT CHECK:');
-        const binDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
-        await log(`Compositor Binaries Dir: ${binDir || 'NOT SET'}`);
-        await log(`FFMPEG: ${process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)()}`);
-        await log('Step 1: Writing project files...');
+        await log('--- SYSTEM READINESS CHECK ---');
+        const compDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
+        const esbuildPath = process.env.ESBUILD_BINARY_PATH;
+        const ffmpegPath = process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)();
+        await log(`Compositor Path: ${compDir} (${fs_extra_1.default.existsSync(compDir || '') ? 'OK' : 'MISSING'})`);
+        await log(`esbuild Path: ${esbuildPath} (${fs_extra_1.default.existsSync(esbuildPath || '') ? 'OK' : 'MISSING'})`);
+        await log(`FFmpeg Path: ${ffmpegPath} (${fs_extra_1.default.existsSync(ffmpegPath || '') ? 'OK' : 'MISSING'})`);
+        if (!compDir || !fs_extra_1.default.existsSync(compDir)) {
+            throw new Error("Render Engine tool (remotion.exe) is missing or blocked by antivirus. Please reinstall.");
+        }
+        await log('Step 1: Preparing Project Files...');
         await fs_extra_1.default.writeFile(inputPath, code);
         const entryContent = `
             import React from 'react';
@@ -83,29 +89,28 @@ async function renderProject(options) {
         `;
         await fs_extra_1.default.writeFile(entryPath, entryContent);
         await fs_extra_1.default.writeFile(cssPath, `/* Tailwind placeholder */`);
-        await log('Step 2: Bundling project with esbuild...');
+        await log('Step 2: Bundling Video Assets...');
         const bundled = await (0, bundler_1.bundle)({
             entryPoint: entryPath,
             outDir: path_1.default.join(tempDir, 'bundle'),
         });
-        await log('Step 3: Loading composition metadata...');
+        await log('Step 3: Initializing Composition...');
         const composition = await (0, renderer_1.selectComposition)({
             serveUrl: bundled,
             id: 'Main',
         });
-        await log('Step 4: Executing pipeline...');
+        await log('Step 4: Rendering High-Quality Frames...');
         await (0, renderer_1.renderMedia)({
             composition,
             serveUrl: bundled,
             codec: 'h264',
             outputLocation: outputPath,
-            concurrency: 1,
+            concurrency: 1, // Single-threaded for maximum stability on Windows
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
-            // Pass the unpacked node_modules path as the binaries directory
-            binariesDirectory: binDir || undefined,
-            ffmpegExecutable: process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)() || undefined,
+            binariesDirectory: compDir,
+            ffmpegExecutable: ffmpegPath || undefined,
             ffprobeExecutable: process.env.FFPROBE_BINARY || (0, ffmpeg_1.getFFprobePath)() || undefined,
             onProgress: ({ progress }) => {
                 const p = Math.round(progress * 100);
@@ -120,7 +125,7 @@ async function renderProject(options) {
             fileSize = stats.size;
         }
         catch (err) { }
-        await log('SUCCESS: Render complete!');
+        await log('SUCCESS: Rendering completed perfectly!');
         if (options.jobId)
             await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
         await fs_extra_1.default.remove(tempDir);
@@ -128,7 +133,7 @@ async function renderProject(options) {
     }
     catch (error) {
         const errorStack = error.stack || error.message;
-        await log(`CRITICAL ERROR:\n${errorStack}`);
+        await log(`CRITICAL FAILURE:\n${errorStack}`);
         console.error("Render failed:", error);
         onLog(`Failed: ${error.message}`);
         if (options.jobId)

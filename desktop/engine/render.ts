@@ -68,12 +68,20 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const outputPath = path.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
 
     try {
-        await log('ENVIRONMENT CHECK:');
-        const binDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
-        await log(`Compositor Binaries Dir: ${binDir || 'NOT SET'}`);
-        await log(`FFMPEG: ${process.env.FFMPEG_BINARY || getFFmpegPath()}`);
+        await log('--- SYSTEM READINESS CHECK ---');
+        const compDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
+        const esbuildPath = process.env.ESBUILD_BINARY_PATH;
+        const ffmpegPath = process.env.FFMPEG_BINARY || getFFmpegPath();
 
-        await log('Step 1: Writing project files...');
+        await log(`Compositor Path: ${compDir} (${fs.existsSync(compDir || '') ? 'OK' : 'MISSING'})`);
+        await log(`esbuild Path: ${esbuildPath} (${fs.existsSync(esbuildPath || '') ? 'OK' : 'MISSING'})`);
+        await log(`FFmpeg Path: ${ffmpegPath} (${fs.existsSync(ffmpegPath || '') ? 'OK' : 'MISSING'})`);
+
+        if (!compDir || !fs.existsSync(compDir)) {
+            throw new Error("Render Engine tool (remotion.exe) is missing or blocked by antivirus. Please reinstall.");
+        }
+
+        await log('Step 1: Preparing Project Files...');
         await fs.writeFile(inputPath, code);
 
         const entryContent = `
@@ -99,32 +107,31 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await fs.writeFile(entryPath, entryContent);
         await fs.writeFile(cssPath, `/* Tailwind placeholder */`);
 
-        await log('Step 2: Bundling project with esbuild...');
+        await log('Step 2: Bundling Video Assets...');
         const bundled = await bundle({
             entryPoint: entryPath,
             outDir: path.join(tempDir, 'bundle'),
         });
 
-        await log('Step 3: Loading composition metadata...');
+        await log('Step 3: Initializing Composition...');
         const composition = await selectComposition({
             serveUrl: bundled,
             id: 'Main',
         });
 
-        await log('Step 4: Executing pipeline...');
+        await log('Step 4: Rendering High-Quality Frames...');
 
         await renderMedia({
             composition,
             serveUrl: bundled,
             codec: 'h264',
             outputLocation: outputPath,
-            concurrency: 1,
+            concurrency: 1, // Single-threaded for maximum stability on Windows
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
-            // Pass the unpacked node_modules path as the binaries directory
-            binariesDirectory: binDir || undefined,
-            ffmpegExecutable: process.env.FFMPEG_BINARY || getFFmpegPath() || undefined,
+            binariesDirectory: compDir,
+            ffmpegExecutable: ffmpegPath || undefined,
             ffprobeExecutable: process.env.FFPROBE_BINARY || getFFprobePath() || undefined,
             onProgress: ({ progress }) => {
                 const p = Math.round(progress * 100);
@@ -139,7 +146,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             fileSize = stats.size;
         } catch (err) { }
 
-        await log('SUCCESS: Render complete!');
+        await log('SUCCESS: Rendering completed perfectly!');
         if (options.jobId) await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
 
         await fs.remove(tempDir);
@@ -147,7 +154,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
 
     } catch (error: any) {
         const errorStack = error.stack || error.message;
-        await log(`CRITICAL ERROR:\n${errorStack}`);
+        await log(`CRITICAL FAILURE:\n${errorStack}`);
         console.error("Render failed:", error);
 
         onLog(`Failed: ${error.message}`);
