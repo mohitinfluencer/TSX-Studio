@@ -7,15 +7,23 @@ exports.getFFmpegPath = getFFmpegPath;
 exports.getFFprobePath = getFFprobePath;
 const ffmpeg_static_1 = __importDefault(require("ffmpeg-static"));
 const ffprobe_static_1 = __importDefault(require("ffprobe-static"));
+const electron_1 = require("electron");
 function getFFmpegPath() {
-    if (process.env.NODE_ENV === 'development') {
+    const isDev = !electron_1.app.isPackaged && process.env.NODE_ENV === 'development';
+    if (isDev) {
         return ffmpeg_static_1.default;
     }
-    // In production (Electron packed), we need to handle the path correctly
-    // This depends on how electron-builder bundles the static bin
-    return ffmpeg_static_1.default;
+    // In production, Electron moves unpacked binaries to app.asar.unpacked
+    // We must point to that location or the binary won't execute
+    return ffmpeg_static_1.default.replace('app.asar', 'app.asar.unpacked');
 }
 function getFFprobePath() {
-    return ffprobe_static_1.default.path;
+    const isDev = !electron_1.app.isPackaged && process.env.NODE_ENV === 'development';
+    const binaryPath = ffprobe_static_1.default.path;
+    if (isDev) {
+        return binaryPath;
+    }
+    // Fix for production unpacked ASAR
+    return binaryPath.replace('app.asar', 'app.asar.unpacked');
 }
 //# sourceMappingURL=ffmpeg.js.map

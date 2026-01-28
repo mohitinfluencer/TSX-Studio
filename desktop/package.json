@@ -14,18 +14,12 @@
     "build": {
         "appId": "com.tsx.studio",
         "productName": "TSX Studio",
-        "copyright": "Copyright © 2026 TSX Studio Team",
         "directories": {
             "output": "dist"
         },
         "win": {
             "target": [
-                {
-                    "target": "nsis",
-                    "arch": [
-                        "x64"
-                    ]
-                }
+                "nsis"
             ],
             "icon": "logo.jpg"
         },
@@ -45,10 +39,7 @@
             "preload.js",
             "package.json",
             "logo.jpg",
-            "!node_modules/ffmpeg-static/index.js",
-            "!node_modules/ffprobe-static/index.js",
-            "!node_modules/ffmpeg-static/package.json",
-            "!node_modules/ffprobe-static/package.json"
+            "node_modules/**/*"
         ],
         "asar": true,
         "asarUnpack": [
