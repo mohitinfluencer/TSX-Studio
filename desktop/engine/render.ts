@@ -47,14 +47,8 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const rendersDir = path.join(baseDir, 'renders');
     const logFile = path.join(baseDir, 'render-debug.log');
 
-    // Fix for esbuild in packaged Electron
-    if (app.isPackaged) {
-        // Point esbuild to the unpacked binary location
-        const esbuildPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@esbuild', 'win32-x64', 'esbuild.exe');
-        if (await fs.pathExists(esbuildPath)) {
-            process.env.ESBUILD_BINARY_PATH = esbuildPath;
-        }
-    }
+    // Set writable cache for Chromium
+    process.env.PUPPETEER_CACHE_DIR = path.join(baseDir, 'puppeteer-cache');
 
     await fs.remove(logFile);
     const log = async (msg: string) => {
@@ -66,6 +60,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
 
     await fs.ensureDir(tempDir);
     await fs.ensureDir(rendersDir);
+    await fs.ensureDir(process.env.PUPPETEER_CACHE_DIR);
 
     const inputPath = path.join(tempDir, 'UserComposition.tsx');
     const entryPath = path.join(tempDir, 'index.tsx');
@@ -73,7 +68,11 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const outputPath = path.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
 
     try {
-        await log('Writing project files to secure storage...');
+        await log('ENVIRONMENT CHECK:');
+        await log(`ESBUILD_PATH: ${process.env.ESBUILD_BINARY_PATH || 'Not Set'}`);
+        await log(`FFMPEG_PATH: ${process.env.FFMPEG_BINARY || getFFmpegPath()}`);
+
+        await log('Writing project files...');
         await fs.writeFile(inputPath, code);
 
         const entryContent = `
@@ -99,8 +98,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await fs.writeFile(entryPath, entryContent);
         await fs.writeFile(cssPath, `/* Tailwind placeholder */`);
 
-        await log('Bundling Remotion project (this may take a moment)...');
-        // This is where esbuild is triggered
+        await log('Bundling Remotion project...');
         const bundled = await bundle({
             entryPoint: entryPath,
             outDir: path.join(tempDir, 'bundle'),
@@ -112,7 +110,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             id: 'Main',
         });
 
-        await log('Starting hardware-accelerated render...');
+        await log('Starting render pipeline...');
 
         await renderMedia({
             composition,
@@ -123,8 +121,8 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
-            ffmpegExecutable: getFFmpegPath() || undefined,
-            ffprobeExecutable: getFFprobePath() || undefined,
+            ffmpegExecutable: process.env.FFMPEG_BINARY || getFFmpegPath() || undefined,
+            ffprobeExecutable: process.env.FFPROBE_BINARY || getFFprobePath() || undefined,
             onProgress: ({ progress }) => {
                 const p = Math.round(progress * 100);
                 onProgress(p);
@@ -138,7 +136,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             fileSize = stats.size;
         } catch (err) { }
 
-        await log('Render complete! Notifying server...');
+        await log('Render complete!');
         if (options.jobId) await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
 
         await fs.remove(tempDir);

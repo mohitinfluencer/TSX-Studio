@@ -38,14 +38,8 @@ async function renderProject(options) {
     const tempDir = path_1.default.join(baseDir, '.tsx-temp', projectId);
     const rendersDir = path_1.default.join(baseDir, 'renders');
     const logFile = path_1.default.join(baseDir, 'render-debug.log');
-    // Fix for esbuild in packaged Electron
-    if (electron_1.app.isPackaged) {
-        // Point esbuild to the unpacked binary location
-        const esbuildPath = path_1.default.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@esbuild', 'win32-x64', 'esbuild.exe');
-        if (await fs_extra_1.default.pathExists(esbuildPath)) {
-            process.env.ESBUILD_BINARY_PATH = esbuildPath;
-        }
-    }
+    // Set writable cache for Chromium
+    process.env.PUPPETEER_CACHE_DIR = path_1.default.join(baseDir, 'puppeteer-cache');
     await fs_extra_1.default.remove(logFile);
     const log = async (msg) => {
         const timestamp = new Date().toISOString();
@@ -55,12 +49,16 @@ async function renderProject(options) {
     };
     await fs_extra_1.default.ensureDir(tempDir);
     await fs_extra_1.default.ensureDir(rendersDir);
+    await fs_extra_1.default.ensureDir(process.env.PUPPETEER_CACHE_DIR);
     const inputPath = path_1.default.join(tempDir, 'UserComposition.tsx');
     const entryPath = path_1.default.join(tempDir, 'index.tsx');
     const cssPath = path_1.default.join(tempDir, 'styles.css');
     const outputPath = path_1.default.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
     try {
-        await log('Writing project files to secure storage...');
+        await log('ENVIRONMENT CHECK:');
+        await log(`ESBUILD_PATH: ${process.env.ESBUILD_BINARY_PATH || 'Not Set'}`);
+        await log(`FFMPEG_PATH: ${process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)()}`);
+        await log('Writing project files...');
         await fs_extra_1.default.writeFile(inputPath, code);
         const entryContent = `
             import React from 'react';
@@ -84,8 +82,7 @@ async function renderProject(options) {
         `;
         await fs_extra_1.default.writeFile(entryPath, entryContent);
         await fs_extra_1.default.writeFile(cssPath, `/* Tailwind placeholder */`);
-        await log('Bundling Remotion project (this may take a moment)...');
-        // This is where esbuild is triggered
+        await log('Bundling Remotion project...');
         const bundled = await (0, bundler_1.bundle)({
             entryPoint: entryPath,
             outDir: path_1.default.join(tempDir, 'bundle'),
@@ -95,7 +92,7 @@ async function renderProject(options) {
             serveUrl: bundled,
             id: 'Main',
         });
-        await log('Starting hardware-accelerated render...');
+        await log('Starting render pipeline...');
         await (0, renderer_1.renderMedia)({
             composition,
             serveUrl: bundled,
@@ -105,8 +102,8 @@ async function renderProject(options) {
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
-            ffmpegExecutable: (0, ffmpeg_1.getFFmpegPath)() || undefined,
-            ffprobeExecutable: (0, ffmpeg_1.getFFprobePath)() || undefined,
+            ffmpegExecutable: process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)() || undefined,
+            ffprobeExecutable: process.env.FFPROBE_BINARY || (0, ffmpeg_1.getFFprobePath)() || undefined,
             onProgress: ({ progress }) => {
                 const p = Math.round(progress * 100);
                 onProgress(p);
@@ -120,7 +117,7 @@ async function renderProject(options) {
             fileSize = stats.size;
         }
         catch (err) { }
-        await log('Render complete! Notifying server...');
+        await log('Render complete!');
         if (options.jobId)
             await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
         await fs_extra_1.default.remove(tempDir);

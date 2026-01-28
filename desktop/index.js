@@ -1,21 +1,36 @@
 const { app } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 /**
- * ENTRY POINT FOR TSX STUDIO DESKTOP
- * This file handles production vs development PIVOTING.
- * In production, it only runs compiled JavaScript.
+ * TSX STUDIO - PRODUCTION BOOTSTRAP
+ * Sets up the environment for native binary execution (FFmpeg, esbuild, etc.)
+ * before the main application logic starts.
  */
+
+if (app.isPackaged) {
+    const resourcesPath = process.resourcesPath;
+    const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
+
+    // 1. Fix esbuild (Bundling Engine)
+    const esbuildPath = path.join(unpackedPath, 'node_modules', '@esbuild', 'win32-x64', 'esbuild.exe');
+    if (fs.existsSync(esbuildPath)) {
+        process.env.ESBUILD_BINARY_PATH = esbuildPath;
+    }
+
+    // 2. Fix FFmpeg / FFprobe (Rendering Engine)
+    const ffmpegPath = path.join(unpackedPath, 'node_modules', 'ffmpeg-static', 'ffmpeg.exe');
+    const ffprobePath = path.join(unpackedPath, 'node_modules', 'ffprobe-static', 'bin', 'win32', 'x64', 'ffprobe.exe');
+
+    if (fs.existsSync(ffmpegPath)) process.env.FFMPEG_BINARY = ffmpegPath;
+    if (fs.existsSync(ffprobePath)) process.env.FFPROBE_BINARY = ffprobePath;
+}
 
 const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';
 
 if (isDev) {
-    // Development: Run TypeScript directly
     require('tsx/cjs');
     require('./main.ts');
 } else {
-    // Production: Run compiled JavaScript only
-    // This removes all 'tsx' and 'typescript' dependencies from runtime
-    const mainPath = path.join(__dirname, 'dist-main', 'main.js');
-    require(mainPath);
+    require('./dist-main/main.js');
 }
