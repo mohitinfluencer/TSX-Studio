@@ -17,7 +17,6 @@ interface RenderOptions {
     onLog: (log: string) => void;
 }
 
-// Fixed reporting function to handle error messages correctly for the database
 async function reportProgress(jobId: string, progress: number, status = "RENDERING", filePath?: string, durationSeconds?: number, outputSizeBytes?: number, errorMsg?: string) {
     try {
         const apiBase = app.isPackaged ? 'https://tsx-studio-v2.vercel.app' : 'http://localhost:3000';
@@ -48,7 +47,15 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const rendersDir = path.join(baseDir, 'renders');
     const logFile = path.join(baseDir, 'render-debug.log');
 
-    // Clear old log
+    // Fix for esbuild in packaged Electron
+    if (app.isPackaged) {
+        // Point esbuild to the unpacked binary location
+        const esbuildPath = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@esbuild', 'win32-x64', 'esbuild.exe');
+        if (await fs.pathExists(esbuildPath)) {
+            process.env.ESBUILD_BINARY_PATH = esbuildPath;
+        }
+    }
+
     await fs.remove(logFile);
     const log = async (msg: string) => {
         const timestamp = new Date().toISOString();
@@ -69,7 +76,6 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await log('Writing project files to secure storage...');
         await fs.writeFile(inputPath, code);
 
-        // Core entry file for bundling
         const entryContent = `
             import React from 'react';
             import { registerRoot, Composition } from 'remotion';
@@ -94,6 +100,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await fs.writeFile(cssPath, `/* Tailwind placeholder */`);
 
         await log('Bundling Remotion project (this may take a moment)...');
+        // This is where esbuild is triggered
         const bundled = await bundle({
             entryPoint: entryPath,
             outDir: path.join(tempDir, 'bundle'),
@@ -114,7 +121,6 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             outputLocation: outputPath,
             concurrency: 1,
             chromiumOptions: {
-                // Ensure browser runs in non-sandbox mode for production Electron compatibility
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
             ffmpegExecutable: getFFmpegPath() || undefined,
@@ -135,7 +141,6 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await log('Render complete! Notifying server...');
         if (options.jobId) await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
 
-        // Final cleanup
         await fs.remove(tempDir);
         return outputPath;
 

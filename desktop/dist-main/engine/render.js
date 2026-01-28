@@ -10,7 +10,6 @@ const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const electron_1 = require("electron");
 const ffmpeg_1 = require("./ffmpeg");
-// Fixed reporting function to handle error messages correctly for the database
 async function reportProgress(jobId, progress, status = "RENDERING", filePath, durationSeconds, outputSizeBytes, errorMsg) {
     try {
         const apiBase = electron_1.app.isPackaged ? 'https://tsx-studio-v2.vercel.app' : 'http://localhost:3000';
@@ -39,7 +38,14 @@ async function renderProject(options) {
     const tempDir = path_1.default.join(baseDir, '.tsx-temp', projectId);
     const rendersDir = path_1.default.join(baseDir, 'renders');
     const logFile = path_1.default.join(baseDir, 'render-debug.log');
-    // Clear old log
+    // Fix for esbuild in packaged Electron
+    if (electron_1.app.isPackaged) {
+        // Point esbuild to the unpacked binary location
+        const esbuildPath = path_1.default.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', '@esbuild', 'win32-x64', 'esbuild.exe');
+        if (await fs_extra_1.default.pathExists(esbuildPath)) {
+            process.env.ESBUILD_BINARY_PATH = esbuildPath;
+        }
+    }
     await fs_extra_1.default.remove(logFile);
     const log = async (msg) => {
         const timestamp = new Date().toISOString();
@@ -56,7 +62,6 @@ async function renderProject(options) {
     try {
         await log('Writing project files to secure storage...');
         await fs_extra_1.default.writeFile(inputPath, code);
-        // Core entry file for bundling
         const entryContent = `
             import React from 'react';
             import { registerRoot, Composition } from 'remotion';
@@ -80,6 +85,7 @@ async function renderProject(options) {
         await fs_extra_1.default.writeFile(entryPath, entryContent);
         await fs_extra_1.default.writeFile(cssPath, `/* Tailwind placeholder */`);
         await log('Bundling Remotion project (this may take a moment)...');
+        // This is where esbuild is triggered
         const bundled = await (0, bundler_1.bundle)({
             entryPoint: entryPath,
             outDir: path_1.default.join(tempDir, 'bundle'),
@@ -97,7 +103,6 @@ async function renderProject(options) {
             outputLocation: outputPath,
             concurrency: 1,
             chromiumOptions: {
-                // Ensure browser runs in non-sandbox mode for production Electron compatibility
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
             ffmpegExecutable: (0, ffmpeg_1.getFFmpegPath)() || undefined,
@@ -118,7 +123,6 @@ async function renderProject(options) {
         await log('Render complete! Notifying server...');
         if (options.jobId)
             await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
-        // Final cleanup
         await fs_extra_1.default.remove(tempDir);
         return outputPath;
     }
