@@ -130,11 +130,38 @@ function createWindow() {
 
     // SAFETY: Prevent any links from opening inside the app window
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-        if (url.startsWith('https://tsx-studio-v2.vercel.app') || url.startsWith('http://localhost')) {
+        // Only allow internal routes of the app
+        const isInternal = url.startsWith('https://tsx-studio-v2.vercel.app') ||
+            url.startsWith('http://localhost') ||
+            url.startsWith('tsx-studio://');
+
+        // FORCE external browser for OAuth providers
+        if (url.includes('accounts.google.com') || url.includes('github.com')) {
+            shell.openExternal(url);
+            return { action: 'deny' };
+        }
+
+        if (isInternal) {
             return { action: 'allow' };
         }
+
         shell.openExternal(url);
         return { action: 'deny' };
+    });
+
+    // Intercept standard navigations (location.href)
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+        if (url.includes('accounts.google.com') || url.includes('api/auth/signin/google')) {
+            event.preventDefault();
+            shell.openExternal(url);
+        }
+    });
+
+    mainWindow.webContents.on('will-redirect', (event, url) => {
+        if (url.includes('accounts.google.com')) {
+            event.preventDefault();
+            shell.openExternal(url);
+        }
     });
 }
 

@@ -14,5 +14,12 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     onTranscribeProgress: (callback) => electron_1.ipcRenderer.on('transcribe-progress', (_event, value) => callback(value)),
     onTranscribeLog: (callback) => electron_1.ipcRenderer.on('transcribe-log', (_event, value) => callback(value)),
     getLocalLogs: () => electron_1.ipcRenderer.invoke('get-render-logs'),
+    // Auth specific
+    onAuthSuccess: (callback) => {
+        const subscription = (_event, value) => callback(value);
+        electron_1.ipcRenderer.on('auth-success', subscription);
+        return () => electron_1.ipcRenderer.removeListener('auth-success', subscription);
+    },
+    getPendingToken: () => electron_1.ipcRenderer.invoke('get-pending-token'),
 });
 //# sourceMappingURL=preload.js.map
