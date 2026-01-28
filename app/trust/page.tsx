@@ -17,6 +17,7 @@ import { AppShell } from "@/components/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function TrustPage() {
     const router = useRouter();
@@ -188,11 +189,12 @@ export default function TrustPage() {
                             DOWNLOAD TSX STUDIO
                         </Button>
                         <Button
+                            asChild
                             variant="outline"
                             size="lg"
                             className="h-16 px-10 border-white/10 bg-white/5 hover:bg-white/10 font-black italic uppercase tracking-widest text-[11px] rounded-2xl transition-all"
                         >
-                            VIEW SECURITY GUIDE
+                            <Link href="/install/windows">VIEW INSTALL GUIDE</Link>
                         </Button>
                     </div>
                 </section>

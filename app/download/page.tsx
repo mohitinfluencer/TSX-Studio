@@ -121,7 +121,10 @@ export default function DownloadPage() {
                                         <p className="text-[10px] leading-relaxed text-white/40 font-medium">
                                             Windows may show a security warning for new apps. <br />
                                             Click <span className="text-white/60 font-bold">"More info"</span> → <span className="text-white/60 font-bold">"Run anyway"</span> to install safely.
-                                            <Link href="/trust" className="block mt-1 text-primary hover:underline font-bold">Learn more about trust & security</Link>
+                                            <div className="flex gap-4 mt-2">
+                                                <Link href="/install/windows" className="text-primary hover:underline font-bold">Windows Installation Guide</Link>
+                                                <Link href="/trust" className="text-white/40 hover:text-white font-bold transition-colors">Trust & Security</Link>
+                                            </div>
                                         </p>
                                     </motion.div>
                                 )}
