@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     transcribeMedia: (options: any) => ipcRenderer.invoke('transcribe-media', options),
     onTranscribeProgress: (callback: any) => ipcRenderer.on('transcribe-progress', (_event, value) => callback(value)),
     onTranscribeLog: (callback: any) => ipcRenderer.on('transcribe-log', (_event, value) => callback(value)),
+    getLocalLogs: () => ipcRenderer.invoke('get-render-logs'),
 });

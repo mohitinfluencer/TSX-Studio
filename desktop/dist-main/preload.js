@@ -13,5 +13,6 @@ electron_1.contextBridge.exposeInMainWorld('electronAPI', {
     transcribeMedia: (options) => electron_1.ipcRenderer.invoke('transcribe-media', options),
     onTranscribeProgress: (callback) => electron_1.ipcRenderer.on('transcribe-progress', (_event, value) => callback(value)),
     onTranscribeLog: (callback) => electron_1.ipcRenderer.on('transcribe-log', (_event, value) => callback(value)),
+    getLocalLogs: () => electron_1.ipcRenderer.invoke('get-render-logs'),
 });
 //# sourceMappingURL=preload.js.map

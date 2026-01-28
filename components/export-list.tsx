@@ -144,9 +144,19 @@ export function ExportList({ initialJobs }: ExportListProps) {
             case "FAILED":
             case "ERROR":
                 return (
-                    <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-2 py-1.5 px-3 uppercase text-[10px] font-black italic">
-                        <XCircle className="w-3.5 h-3.5" /> Failed
-                    </Badge>
+                    <div className="flex flex-col gap-1.5 items-start">
+                        <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-2 py-1.5 px-3 uppercase text-[10px] font-black italic">
+                            <XCircle className="w-3.5 h-3.5" /> Failed
+                        </Badge>
+                        {job.errorMessage && (
+                            <span className="text-[9px] text-red-400/60 font-medium max-w-[200px] leading-tight flex items-center gap-1.5 group">
+                                <Info className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate group-hover:whitespace-normal group-hover:bg-black/80 group-hover:p-2 group-hover:rounded-lg group-hover:border group-hover:border-red-500/20 group-hover:absolute group-hover:z-50 group-hover:mt-12 transition-all">
+                                    {job.errorMessage}
+                                </span>
+                            </span>
+                        )}
+                    </div>
                 );
             default:
                 return <Badge variant="secondary" className="uppercase text-[10px] font-black">{status}</Badge>;

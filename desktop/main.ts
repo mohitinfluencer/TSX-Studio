@@ -106,6 +106,15 @@ ipcMain.handle('save-token', (_, token) => { userToken = token; });
 ipcMain.handle('get-token', () => { return userToken; });
 ipcMain.handle('open-path', (_, path) => { shell.showItemInFolder(path); });
 
+ipcMain.handle('get-render-logs', async () => {
+    const fs = require('fs-extra');
+    const logPath = path.join(app.getPath('userData'), 'render-debug.log');
+    if (await fs.pathExists(logPath)) {
+        return await fs.readFile(logPath, 'utf8');
+    }
+    return 'No logs found in secure storage.';
+});
+
 ipcMain.handle('install-whisper-engine', async (event) => {
     const { exec } = require('child_process');
     const runCommand = (cmd: string) => {

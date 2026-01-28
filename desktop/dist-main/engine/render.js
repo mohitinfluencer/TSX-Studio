@@ -10,13 +10,22 @@ const path_1 = __importDefault(require("path"));
 const fs_extra_1 = __importDefault(require("fs-extra"));
 const electron_1 = require("electron");
 const ffmpeg_1 = require("./ffmpeg");
-async function reportProgress(jobId, progress, status = "RENDERING", filePath, durationSeconds, outputSizeBytes) {
+// Fixed reporting function to handle error messages correctly for the database
+async function reportProgress(jobId, progress, status = "RENDERING", filePath, durationSeconds, outputSizeBytes, errorMsg) {
     try {
         const apiBase = electron_1.app.isPackaged ? 'https://tsx-studio-v2.vercel.app' : 'http://localhost:3000';
         await fetch(`${apiBase}/api/render`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId, progress, status, storageKey: filePath, durationSeconds, outputSizeBytes })
+            body: JSON.stringify({
+                jobId,
+                progress,
+                status,
+                storageKey: filePath,
+                durationSeconds,
+                outputSizeBytes,
+                errorMessage: errorMsg
+            })
         });
     }
     catch (e) {
@@ -29,18 +38,25 @@ async function renderProject(options) {
     const baseDir = electron_1.app.getPath('userData');
     const tempDir = path_1.default.join(baseDir, '.tsx-temp', projectId);
     const rendersDir = path_1.default.join(baseDir, 'renders');
-    // Set environment variable for Puppeteer to use a writable folder
-    process.env.PUPPETEER_CACHE_DIR = path_1.default.join(baseDir, 'puppeteer-cache');
+    const logFile = path_1.default.join(baseDir, 'render-debug.log');
+    // Clear old log
+    await fs_extra_1.default.remove(logFile);
+    const log = async (msg) => {
+        const timestamp = new Date().toISOString();
+        const formatted = `[${timestamp}] ${msg}\n`;
+        await fs_extra_1.default.appendFile(logFile, formatted);
+        onLog(msg);
+    };
     await fs_extra_1.default.ensureDir(tempDir);
     await fs_extra_1.default.ensureDir(rendersDir);
-    await fs_extra_1.default.ensureDir(process.env.PUPPETEER_CACHE_DIR);
     const inputPath = path_1.default.join(tempDir, 'UserComposition.tsx');
     const entryPath = path_1.default.join(tempDir, 'index.tsx');
     const cssPath = path_1.default.join(tempDir, 'styles.css');
     const outputPath = path_1.default.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
     try {
-        onLog('Internal: Starting build chain...');
+        await log('Writing project files to secure storage...');
         await fs_extra_1.default.writeFile(inputPath, code);
+        // Core entry file for bundling
         const entryContent = `
             import React from 'react';
             import { registerRoot, Composition } from 'remotion';
@@ -63,25 +79,25 @@ async function renderProject(options) {
         `;
         await fs_extra_1.default.writeFile(entryPath, entryContent);
         await fs_extra_1.default.writeFile(cssPath, `/* Tailwind placeholder */`);
-        onLog('Optimizing bundle...');
+        await log('Bundling Remotion project (this may take a moment)...');
         const bundled = await (0, bundler_1.bundle)({
             entryPoint: entryPath,
             outDir: path_1.default.join(tempDir, 'bundle'),
         });
+        await log('Analyzing bundle...');
         const composition = await (0, renderer_1.selectComposition)({
             serveUrl: bundled,
             id: 'Main',
         });
-        onLog('Allocating resources...');
-        // We removed the Electron browser path as it causes hangs without complex setup.
-        // Remotion will now auto-provision a stable headless browser in the writable Cache Dir.
+        await log('Starting hardware-accelerated render...');
         await (0, renderer_1.renderMedia)({
             composition,
             serveUrl: bundled,
             codec: 'h264',
             outputLocation: outputPath,
-            concurrency: 1, // Start with single thread to avoid crashes on some hardware
+            concurrency: 1,
             chromiumOptions: {
+                // Ensure browser runs in non-sandbox mode for production Electron compatibility
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
             ffmpegExecutable: (0, ffmpeg_1.getFFmpegPath)() || undefined,
@@ -99,17 +115,20 @@ async function renderProject(options) {
             fileSize = stats.size;
         }
         catch (err) { }
+        await log('Render complete! Notifying server...');
         if (options.jobId)
             await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
-        onLog('Finalizing...');
+        // Final cleanup
         await fs_extra_1.default.remove(tempDir);
         return outputPath;
     }
     catch (error) {
+        const errorStack = error.stack || error.message;
+        await fs_extra_1.default.appendFile(logFile, `CRITICAL ERROR:\n${errorStack}\n`);
         console.error("Render failed:", error);
-        onLog(`Critical Error: ${error.message}`);
+        onLog(`Failed: ${error.message}`);
         if (options.jobId)
-            await reportProgress(options.jobId, 0, "FAILED", error.message);
+            await reportProgress(options.jobId, 0, "FAILED", undefined, undefined, undefined, error.message);
         throw error;
     }
 }

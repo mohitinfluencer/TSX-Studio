@@ -17,13 +17,22 @@ interface RenderOptions {
     onLog: (log: string) => void;
 }
 
-async function reportProgress(jobId: string, progress: number, status = "RENDERING", filePath?: string, durationSeconds?: number, outputSizeBytes?: number) {
+// Fixed reporting function to handle error messages correctly for the database
+async function reportProgress(jobId: string, progress: number, status = "RENDERING", filePath?: string, durationSeconds?: number, outputSizeBytes?: number, errorMsg?: string) {
     try {
         const apiBase = app.isPackaged ? 'https://tsx-studio-v2.vercel.app' : 'http://localhost:3000';
         await fetch(`${apiBase}/api/render`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId, progress, status, storageKey: filePath, durationSeconds, outputSizeBytes })
+            body: JSON.stringify({
+                jobId,
+                progress,
+                status,
+                storageKey: filePath,
+                durationSeconds,
+                outputSizeBytes,
+                errorMessage: errorMsg
+            })
         });
     } catch (e) {
         console.error("Failed to report progress to server:", e);
@@ -37,13 +46,19 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const baseDir = app.getPath('userData');
     const tempDir = path.join(baseDir, '.tsx-temp', projectId);
     const rendersDir = path.join(baseDir, 'renders');
+    const logFile = path.join(baseDir, 'render-debug.log');
 
-    // Set environment variable for Puppeteer to use a writable folder
-    process.env.PUPPETEER_CACHE_DIR = path.join(baseDir, 'puppeteer-cache');
+    // Clear old log
+    await fs.remove(logFile);
+    const log = async (msg: string) => {
+        const timestamp = new Date().toISOString();
+        const formatted = `[${timestamp}] ${msg}\n`;
+        await fs.appendFile(logFile, formatted);
+        onLog(msg);
+    };
 
     await fs.ensureDir(tempDir);
     await fs.ensureDir(rendersDir);
-    await fs.ensureDir(process.env.PUPPETEER_CACHE_DIR);
 
     const inputPath = path.join(tempDir, 'UserComposition.tsx');
     const entryPath = path.join(tempDir, 'index.tsx');
@@ -51,9 +66,10 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const outputPath = path.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
 
     try {
-        onLog('Internal: Starting build chain...');
+        await log('Writing project files to secure storage...');
         await fs.writeFile(inputPath, code);
 
+        // Core entry file for bundling
         const entryContent = `
             import React from 'react';
             import { registerRoot, Composition } from 'remotion';
@@ -77,28 +93,28 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await fs.writeFile(entryPath, entryContent);
         await fs.writeFile(cssPath, `/* Tailwind placeholder */`);
 
-        onLog('Optimizing bundle...');
+        await log('Bundling Remotion project (this may take a moment)...');
         const bundled = await bundle({
             entryPoint: entryPath,
             outDir: path.join(tempDir, 'bundle'),
         });
 
+        await log('Analyzing bundle...');
         const composition = await selectComposition({
             serveUrl: bundled,
             id: 'Main',
         });
 
-        onLog('Allocating resources...');
+        await log('Starting hardware-accelerated render...');
 
-        // We removed the Electron browser path as it causes hangs without complex setup.
-        // Remotion will now auto-provision a stable headless browser in the writable Cache Dir.
         await renderMedia({
             composition,
             serveUrl: bundled,
             codec: 'h264',
             outputLocation: outputPath,
-            concurrency: 1, // Start with single thread to avoid crashes on some hardware
+            concurrency: 1,
             chromiumOptions: {
+                // Ensure browser runs in non-sandbox mode for production Electron compatibility
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
             ffmpegExecutable: getFFmpegPath() || undefined,
@@ -116,16 +132,20 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             fileSize = stats.size;
         } catch (err) { }
 
+        await log('Render complete! Notifying server...');
         if (options.jobId) await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
 
-        onLog('Finalizing...');
+        // Final cleanup
         await fs.remove(tempDir);
         return outputPath;
 
     } catch (error: any) {
+        const errorStack = error.stack || error.message;
+        await fs.appendFile(logFile, `CRITICAL ERROR:\n${errorStack}\n`);
         console.error("Render failed:", error);
-        onLog(`Critical Error: ${error.message}`);
-        if (options.jobId) await reportProgress(options.jobId, 0, "FAILED", error.message);
+
+        onLog(`Failed: ${error.message}`);
+        if (options.jobId) await reportProgress(options.jobId, 0, "FAILED", undefined, undefined, undefined, error.message);
         throw error;
     }
 }

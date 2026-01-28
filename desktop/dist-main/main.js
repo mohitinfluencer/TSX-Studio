@@ -101,6 +101,14 @@ let userToken = null;
 electron_1.ipcMain.handle('save-token', (_, token) => { userToken = token; });
 electron_1.ipcMain.handle('get-token', () => { return userToken; });
 electron_1.ipcMain.handle('open-path', (_, path) => { electron_1.shell.showItemInFolder(path); });
+electron_1.ipcMain.handle('get-render-logs', async () => {
+    const fs = require('fs-extra');
+    const logPath = path_1.default.join(electron_1.app.getPath('userData'), 'render-debug.log');
+    if (await fs.pathExists(logPath)) {
+        return await fs.readFile(logPath, 'utf8');
+    }
+    return 'No logs found in secure storage.';
+});
 electron_1.ipcMain.handle('install-whisper-engine', async (event) => {
     const { exec } = require('child_process');
     const runCommand = (cmd) => {
