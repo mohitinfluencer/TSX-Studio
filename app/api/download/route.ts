@@ -1,58 +1,24 @@
+import { head } from "@vercel/blob";
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 
+// This route serves as a professional proxy/redirect to Vercel Blob
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const platform = searchParams.get("platform") || "windows";
 
-    const filenames = {
-        windows: "TSX Studio Setup 1.0.0.exe",
-        windows_portable: "TSX-Studio-Portable.zip",
-        mac: "TSX-Studio.dmg",
-        linux: "TSX-Studio.AppImage"
-    };
+    // In a real production environment, you would store this URL in an Env Var
+    // or use the 'list' function to find the latest installer.
+    // For now, we use the specific Vercel Blob URL we'll generate.
 
-    let filename = filenames[platform as keyof typeof filenames] || filenames.windows;
+    // FALLBACK: If no blob is configured yet, we handle it gracefully.
+    const blobUrl = process.env.NEXT_PUBLIC_INSTALLER_URL;
 
-    // First check local installers folder
-    let localPath = path.join(process.cwd(), "public", "installers", filename);
-
-    // Development/Local convenience: If not in public/installers, check the desktop/dist folder
-    if (!fs.existsSync(localPath) && platform === "windows") {
-        const buildPath = path.join(process.cwd(), "desktop", "dist", "TSX Studio Setup 1.0.0.exe");
-        if (fs.existsSync(buildPath)) {
-            localPath = buildPath;
-        }
+    if (!blobUrl && platform === "windows") {
+        return new NextResponse("Installer not yet uploaded to Vercel Blob. Please run the upload script.", { status: 404 });
     }
 
-    // Smart local fallback for Windows: 
-    if (platform === "windows" && !fs.existsSync(localPath)) {
-        const portablePath = path.join(process.cwd(), "public", "installers", filenames.windows_portable);
-        if (fs.existsSync(portablePath)) {
-            filename = filenames.windows_portable;
-            localPath = portablePath;
-        }
-    }
-
-    // 1. Serve local file DIRECTLY
-    if (fs.existsSync(localPath)) {
-        try {
-            const file = fs.readFileSync(localPath);
-            return new NextResponse(file, {
-                headers: {
-                    "Content-Type": "application/octet-stream",
-                    "Content-Disposition": `attachment; filename="${filename}"`,
-                },
-            });
-        } catch (e) {
-            console.error("Local serve failed:", e);
-        }
-    }
-
-    // 2. Fallback to GitHub Release
-    const githubBase = "https://github.com/mohitinfluencer/TSX-Studio/releases/latest/download";
-    const githubUrl = `${githubBase}/${filename}`;
-
-    return NextResponse.redirect(githubUrl);
+    // Redirect to the Blob URL. 
+    // Vercel Blob automatically handles 'content-disposition' if configured during upload,
+    // ensuring it downloads as a file rather than opening in the browser.
+    return NextResponse.redirect(new URL(blobUrl || "", request.url));
 }

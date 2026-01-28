@@ -37,7 +37,7 @@ export default function DownloadPage() {
                 handleDownload(currentOs);
                 setHasTriggered(true);
             }
-        }, 1500);
+        }, 1000);
 
         return () => clearTimeout(timer);
     }, []);
