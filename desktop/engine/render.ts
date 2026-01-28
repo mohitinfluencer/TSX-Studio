@@ -2,6 +2,7 @@ import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
 import fs from 'fs-extra';
+import { app } from 'electron';
 import { getFFmpegPath, getFFprobePath } from './ffmpeg';
 
 interface RenderOptions {
@@ -16,12 +17,14 @@ interface RenderOptions {
     onLog: (log: string) => void;
 }
 
-async function reportProgress(jobId: string, progress: number, status = "RENDERING", path?: string, durationSeconds?: number, outputSizeBytes?: number) {
+async function reportProgress(jobId: string, progress: number, status = "RENDERING", filePath?: string, durationSeconds?: number, outputSizeBytes?: number) {
     try {
-        await fetch('http://localhost:3000/api/render', {
+        // Use the actual website URL if in production
+        const apiBase = app.isPackaged ? 'https://tsx-studio-v2.vercel.app' : 'http://localhost:3000';
+        await fetch(`${apiBase}/api/render`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jobId, progress, status, storageKey: path, durationSeconds, outputSizeBytes })
+            body: JSON.stringify({ jobId, progress, status, storageKey: filePath, durationSeconds, outputSizeBytes })
         });
     } catch (e) {
         console.error("Failed to report progress to server:", e);
@@ -32,14 +35,18 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const { projectId, code, durationInFrames, fps, width, height, onProgress, onLog } = options;
     const durationSeconds = Number((durationInFrames / fps).toFixed(2));
 
-    const tempDir = path.join(process.cwd(), '.tsx-temp', projectId);
+    // Use UserData or Temp for writing files in production (safe & writable)
+    const baseDir = app.getPath('userData');
+    const tempDir = path.join(baseDir, '.tsx-temp', projectId);
+    const rendersDir = path.join(baseDir, 'renders');
+
     await fs.ensureDir(tempDir);
+    await fs.ensureDir(rendersDir);
 
     const inputPath = path.join(tempDir, 'UserComposition.tsx');
     const entryPath = path.join(tempDir, 'index.tsx');
     const cssPath = path.join(tempDir, 'styles.css');
-    const outputPath = path.join(process.cwd(), 'renders', `render-${projectId}-${Date.now()}.mp4`);
-    await fs.ensureDir(path.dirname(outputPath));
+    const outputPath = path.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
 
     onLog('Writing project files...');
     await fs.writeFile(inputPath, code);
@@ -79,11 +86,17 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     });
 
     onLog('Starting render pipeline...');
+
+    // CRITICAL: In Electron, we MUST use the Electron executable as the Chromium browser for Remotion
+    // This removes the need for Puppyeteer to download a separate Chromium.
+    const browserPath = process.execPath;
+
     await renderMedia({
         composition,
         serveUrl: bundled,
         codec: 'h264',
         outputLocation: outputPath,
+        chromiumExecutable: browserPath,
         ffmpegExecutable: getFFmpegPath() || undefined,
         ffprobeExecutable: getFFprobePath() || undefined,
         onProgress: ({ progress }) => {
