@@ -18,7 +18,8 @@ import {
     Terminal,
     ShieldAlert,
     UserCircle,
-    Mic
+    Mic,
+    ShieldCheck
 } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
@@ -40,6 +41,7 @@ const navItems = [
     { label: "Exports", href: "/exports", icon: History },
     { label: "Referrals", href: "/referrals", icon: Users },
     { label: "Pricing", href: "/billing", icon: CreditCard },
+    { label: "Trust", href: "/trust", icon: ShieldCheck },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
