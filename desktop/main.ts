@@ -127,6 +127,15 @@ function createWindow() {
             mainWindow?.webContents.closeDevTools();
         });
     }
+
+    // SAFETY: Prevent any links from opening inside the app window
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (url.startsWith('https://tsx-studio-v2.vercel.app') || url.startsWith('http://localhost')) {
+            return { action: 'allow' };
+        }
+        shell.openExternal(url);
+        return { action: 'deny' };
+    });
 }
 
 app.on('window-all-closed', () => {

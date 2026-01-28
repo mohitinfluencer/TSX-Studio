@@ -99,7 +99,13 @@ export default function LoginPage() {
 
                         <Button
                             variant="outline"
-                            onClick={() => signIn("google")}
+                            onClick={() => {
+                                if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                                    (window as any).electronAPI.login();
+                                } else {
+                                    signIn("google");
+                                }
+                            }}
                             className="w-full h-14 bg-white/5 border border-white/5 hover:bg-white/10 rounded-2xl font-black italic text-sm group"
                         >
                             <Globe className="mr-3 w-5 h-5 text-neon-cyan" />
