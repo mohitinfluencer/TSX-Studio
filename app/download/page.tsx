@@ -29,13 +29,6 @@ export default function DownloadPage() {
         else if (platform.includes("linux")) currentOs = "linux";
 
         setOs(currentOs);
-
-        // Auto-trigger download via internal API (Silent redirect)
-        const timer = setTimeout(() => {
-            window.location.href = `/api/download?platform=${currentOs}`;
-        }, 1500);
-
-        return () => clearTimeout(timer);
     }, []);
 
     const handleDownload = (selectedOs?: string) => {
