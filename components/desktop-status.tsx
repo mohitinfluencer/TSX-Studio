@@ -18,6 +18,13 @@ export function DesktopStatus() {
                 setIsDesktop(true);
                 const info = await (window as any).electronAPI.checkSystem();
                 setSystemInfo(info);
+
+                // Listen for professional OAuth callback
+                (window as any).electronAPI.onAuthSuccess((token: string) => {
+                    console.log("Desktop OAuth Success, syncing session...");
+                    // Redirect to the token-login bridge to establish the session
+                    window.location.href = `/api/auth/token-login?token=${token}`;
+                });
             }
         };
         check();

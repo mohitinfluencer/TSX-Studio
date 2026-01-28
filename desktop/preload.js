@@ -12,5 +12,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     transcribeMedia: (options) => ipcRenderer.invoke('transcribe-media', options),
     onTranscribeProgress: (callback) => ipcRenderer.on('transcribe-progress', (_event, value) => callback(value)),
     onTranscribeLog: (callback) => ipcRenderer.on('transcribe-log', (_event, value) => callback(value)),
+    onAuthSuccess: (callback) => ipcRenderer.on('auth-success', (_event, value) => callback(value)),
     installWhisperEngine: () => ipcRenderer.invoke('install-whisper-engine'),
 });

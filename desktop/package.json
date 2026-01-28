@@ -21,7 +21,15 @@
             "target": [
                 "nsis"
             ],
-            "icon": "logo.jpg"
+            "icon": "logo.jpg",
+            "protocols": [
+                {
+                    "name": "tsx-studio-protocol",
+                    "schemes": [
+                        "tsx-studio"
+                    ]
+                }
+            ]
         },
         "nsis": {
             "oneClick": true,
