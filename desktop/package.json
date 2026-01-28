@@ -1,13 +1,42 @@
 {
     "name": "tsx-studio-desktop",
     "version": "1.0.0",
+    "description": "Professional high-performance animation studio powered by Remotion",
+    "author": "TSX Studio Team",
     "main": "index.js",
     "scripts": {
         "dev": "vite",
-        "build": "tsc && vite build && electron-builder",
+        "build": "tsc && vite build",
         "preview": "vite preview",
         "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-        "electron:build": "npm run build && electron-builder"
+        "electron:build": "npm run build && cross-env CSC_SKIP=true electron-builder --win"
+    },
+    "build": {
+        "appId": "com.tsx.studio",
+        "productName": "TSX Studio",
+        "win": {
+            "target": [
+                "nsis",
+                "portable"
+            ],
+            "icon": "logo.jpg"
+        },
+        "nsis": {
+            "oneClick": true,
+            "allowToChangeInstallationDirectory": false,
+            "createDesktopShortcut": true
+        },
+        "files": [
+            "dist-renderer/**/*",
+            "dist-main/**/*",
+            "index.js",
+            "preload.js",
+            "package.json",
+            "logo.jpg"
+        ],
+        "directories": {
+            "output": "dist"
+        }
     },
     "dependencies": {
         "@remotion/bundler": "^4.0.0",

@@ -79,7 +79,7 @@ export default function DownloadPage() {
                             className="flex flex-col sm:flex-row gap-4 pt-4"
                         >
                             <Button
-                                onClick={handleDownload}
+                                onClick={() => handleDownload()}
                                 size="lg"
                                 className="h-16 px-10 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)] group text-lg"
                             >

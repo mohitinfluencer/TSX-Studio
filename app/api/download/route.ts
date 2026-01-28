@@ -8,20 +8,39 @@ export async function GET(request: Request) {
 
     const filenames = {
         windows: "TSX-Studio-Setup.exe",
+        windows_portable: "TSX-Studio-Portable.zip",
         mac: "TSX-Studio.dmg",
         linux: "TSX-Studio.AppImage"
     };
 
-    const filename = filenames[platform as keyof typeof filenames] || filenames.windows;
-    const localPath = path.join(process.cwd(), "public", "installers", filename);
+    let filename = filenames[platform as keyof typeof filenames] || filenames.windows;
+    let localPath = path.join(process.cwd(), "public", "installers", filename);
 
-    // 1. Try local file first (highest priority for "one click" experience)
+    // Smart local fallback for Windows: 
+    if (platform === "windows" && !fs.existsSync(localPath)) {
+        const portablePath = path.join(process.cwd(), "public", "installers", filenames.windows_portable);
+        if (fs.existsSync(portablePath)) {
+            filename = filenames.windows_portable;
+            localPath = portablePath;
+        }
+    }
+
+    // 1. Serve local file DIRECTLY (One-Click, stays on domain)
     if (fs.existsSync(localPath)) {
-        return NextResponse.redirect(new URL(`/installers/${filename}`, request.url));
+        try {
+            const file = fs.readFileSync(localPath);
+            return new NextResponse(file, {
+                headers: {
+                    "Content-Type": "application/octet-stream",
+                    "Content-Disposition": `attachment; filename="${filename}"`,
+                },
+            });
+        } catch (e) {
+            console.error("Local serve failed:", e);
+        }
     }
 
     // 2. Fallback to GitHub Release (Direct Download)
-    // We use the direct download URL format which triggers a download without showing the GitHub UI
     const githubBase = "https://github.com/mohitinfluencer/TSX-Studio/releases/latest/download";
     const githubUrl = `${githubBase}/${filename}`;
 
