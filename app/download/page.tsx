@@ -9,9 +9,6 @@ import {
     Zap,
     ShieldCheck,
     ChevronRight,
-    Globe,
-    Github,
-    ArrowRight,
     Sparkles,
     EyeOff,
     Lock,
@@ -91,19 +88,10 @@ export default function DownloadPage() {
                                 <Button
                                     onClick={() => handleDownload()}
                                     size="lg"
-                                    className="h-16 px-10 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)] group text-lg"
+                                    className="h-16 px-10 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)] group text-lg w-full sm:w-fit"
                                 >
                                     <Download className="w-5 h-5 mr-3 group-hover:animate-bounce" />
                                     DOWNLOAD FOR {os.toUpperCase()}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="lg"
-                                    onClick={() => window.open('https://github.com/mohitinfluencer/TSX-Studio', '_blank')}
-                                    className="h-16 px-10 border-white/5 bg-white/[0.02] hover:bg-white/5 font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all"
-                                >
-                                    <Github className="w-5 h-5 mr-3 opacity-50" />
-                                    VIEW SOURCE
                                 </Button>
                             </div>
                             <div className="px-2 space-y-3">
