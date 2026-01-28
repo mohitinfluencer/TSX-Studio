@@ -7,14 +7,24 @@ export async function GET(request: Request) {
     const platform = searchParams.get("platform") || "windows";
 
     const filenames = {
-        windows: "TSX-Studio-Setup.exe",
+        windows: "TSX Studio Setup 1.0.0.exe",
         windows_portable: "TSX-Studio-Portable.zip",
         mac: "TSX-Studio.dmg",
         linux: "TSX-Studio.AppImage"
     };
 
     let filename = filenames[platform as keyof typeof filenames] || filenames.windows;
+
+    // First check local installers folder
     let localPath = path.join(process.cwd(), "public", "installers", filename);
+
+    // Development/Local convenience: If not in public/installers, check the desktop/dist folder
+    if (!fs.existsSync(localPath) && platform === "windows") {
+        const buildPath = path.join(process.cwd(), "desktop", "dist", "TSX Studio Setup 1.0.0.exe");
+        if (fs.existsSync(buildPath)) {
+            localPath = buildPath;
+        }
+    }
 
     // Smart local fallback for Windows: 
     if (platform === "windows" && !fs.existsSync(localPath)) {
@@ -25,7 +35,7 @@ export async function GET(request: Request) {
         }
     }
 
-    // 1. Serve local file DIRECTLY (One-Click, stays on domain)
+    // 1. Serve local file DIRECTLY
     if (fs.existsSync(localPath)) {
         try {
             const file = fs.readFileSync(localPath);
@@ -40,7 +50,7 @@ export async function GET(request: Request) {
         }
     }
 
-    // 2. Fallback to GitHub Release (Direct Download)
+    // 2. Fallback to GitHub Release
     const githubBase = "https://github.com/mohitinfluencer/TSX-Studio/releases/latest/download";
     const githubUrl = `${githubBase}/${filename}`;
 

@@ -5,35 +5,49 @@ import { checkSystem } from './engine/system-check';
 import { transcribeAudio } from './engine/transcribe';
 
 let mainWindow: BrowserWindow | null = null;
+const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';
 
 function createWindow() {
+    // In production, this file is in dist-main/, so we need to go up one level for root assets
+    const rootPath = app.isPackaged ? path.join(__dirname, '..') : __dirname;
+
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
         titleBarStyle: 'hiddenInset',
-        icon: path.join(__dirname, 'logo.jpg'),
-        show: false, // Don't show until ready
+        icon: path.join(rootPath, 'logo.jpg'),
+        show: false,
         webPreferences: {
-            preload: path.resolve(__dirname, 'preload.js'),
+            preload: app.isPackaged
+                ? path.join(__dirname, 'preload.js') // inside dist-main in production
+                : path.join(rootPath, 'preload.js'),  // root in dev
             nodeIntegration: false,
             contextIsolation: true,
-            sandbox: false, // Needed for compute-heavy tasks if node APIs used in main
-            webSecurity: false // Temporary allow for local file access if needed
+            sandbox: false,
+            webSecurity: false
         },
     });
 
-    // FORCE LOCALHOST for development/testing
-    const loadUrl = process.env.TSX_APP_URL || 'http://localhost:3000';
-    mainWindow.loadURL(loadUrl);
+    if (isDev) {
+        // Development: Load from Vite
+        const loadUrl = process.env.TSX_APP_URL || 'http://localhost:5173';
+        mainWindow.loadURL(loadUrl);
+    } else {
+        // Production: Load the compiled local file
+        // dist-renderer is at the same level as dist-main
+        mainWindow.loadFile(path.join(rootPath, 'dist-renderer', 'index.html'));
+    }
 
     mainWindow.once('ready-to-show', () => {
         mainWindow?.show();
     });
 
-    // DevTools disabled as requested
-    mainWindow.webContents.on('devtools-opened', () => {
-        mainWindow?.webContents.closeDevTools();
-    });
+    // DevTools disabled as requested for production
+    if (!isDev) {
+        mainWindow.webContents.on('devtools-opened', () => {
+            mainWindow?.webContents.closeDevTools();
+        });
+    }
 }
 
 app.whenReady().then(() => {
@@ -80,12 +94,10 @@ ipcMain.handle('transcribe-media', async (event, options) => {
 });
 
 ipcMain.handle('login', async () => {
-    // Open browser for OAuth
     const authUrl = 'https://tsx-studio.vercel.app/api/auth/desktop';
     await shell.openExternal(authUrl);
 });
 
-// Simple token storage (Should use safeStorage in production)
 let userToken: string | null = null;
 
 ipcMain.handle('save-token', (_, token) => {
@@ -125,11 +137,7 @@ ipcMain.handle('install-whisper-engine', async (event) => {
 
     try {
         event.sender.send('transcribe-log', "[SETUP] Starting automatic environment configuration...");
-
-        // 1. Install Whisper via Pip
         await runCommand('pip install -U openai-whisper');
-
-        // 2. Install FFmpeg via Winget (Standard on Windows 10/11)
         event.sender.send('transcribe-log', "[SETUP] Attempting to install FFmpeg...");
         try {
             await runCommand('winget install ffmpeg --accept-source-agreements --accept-package-agreements');

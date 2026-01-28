@@ -9,31 +9,45 @@ const render_1 = require("./engine/render");
 const system_check_1 = require("./engine/system-check");
 const transcribe_1 = require("./engine/transcribe");
 let mainWindow = null;
+const isDev = !electron_1.app.isPackaged && process.env.NODE_ENV === 'development';
 function createWindow() {
+    // In production, this file is in dist-main/, so we need to go up one level for root assets
+    const rootPath = electron_1.app.isPackaged ? path_1.default.join(__dirname, '..') : __dirname;
     mainWindow = new electron_1.BrowserWindow({
         width: 1200,
         height: 800,
         titleBarStyle: 'hiddenInset',
-        icon: path_1.default.join(__dirname, 'logo.jpg'),
-        show: false, // Don't show until ready
+        icon: path_1.default.join(rootPath, 'logo.jpg'),
+        show: false,
         webPreferences: {
-            preload: path_1.default.resolve(__dirname, 'preload.js'),
+            preload: electron_1.app.isPackaged
+                ? path_1.default.join(__dirname, 'preload.js') // inside dist-main in production
+                : path_1.default.join(rootPath, 'preload.js'), // root in dev
             nodeIntegration: false,
             contextIsolation: true,
-            sandbox: false, // Needed for compute-heavy tasks if node APIs used in main
-            webSecurity: false // Temporary allow for local file access if needed
+            sandbox: false,
+            webSecurity: false
         },
     });
-    // FORCE LOCALHOST for development/testing
-    const loadUrl = process.env.TSX_APP_URL || 'http://localhost:3000';
-    mainWindow.loadURL(loadUrl);
+    if (isDev) {
+        // Development: Load from Vite
+        const loadUrl = process.env.TSX_APP_URL || 'http://localhost:5173';
+        mainWindow.loadURL(loadUrl);
+    }
+    else {
+        // Production: Load the compiled local file
+        // dist-renderer is at the same level as dist-main
+        mainWindow.loadFile(path_1.default.join(rootPath, 'dist-renderer', 'index.html'));
+    }
     mainWindow.once('ready-to-show', () => {
         mainWindow?.show();
     });
-    // DevTools disabled as requested
-    mainWindow.webContents.on('devtools-opened', () => {
-        mainWindow?.webContents.closeDevTools();
-    });
+    // DevTools disabled as requested for production
+    if (!isDev) {
+        mainWindow.webContents.on('devtools-opened', () => {
+            mainWindow?.webContents.closeDevTools();
+        });
+    }
 }
 electron_1.app.whenReady().then(() => {
     createWindow();
@@ -77,11 +91,9 @@ electron_1.ipcMain.handle('transcribe-media', async (event, options) => {
     }
 });
 electron_1.ipcMain.handle('login', async () => {
-    // Open browser for OAuth
     const authUrl = 'https://tsx-studio.vercel.app/api/auth/desktop';
     await electron_1.shell.openExternal(authUrl);
 });
-// Simple token storage (Should use safeStorage in production)
 let userToken = null;
 electron_1.ipcMain.handle('save-token', (_, token) => {
     userToken = token;
@@ -114,9 +126,7 @@ electron_1.ipcMain.handle('install-whisper-engine', async (event) => {
     };
     try {
         event.sender.send('transcribe-log', "[SETUP] Starting automatic environment configuration...");
-        // 1. Install Whisper via Pip
         await runCommand('pip install -U openai-whisper');
-        // 2. Install FFmpeg via Winget (Standard on Windows 10/11)
         event.sender.send('transcribe-log', "[SETUP] Attempting to install FFmpeg...");
         try {
             await runCommand('winget install ffmpeg --accept-source-agreements --accept-package-agreements');
