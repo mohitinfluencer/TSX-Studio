@@ -31,7 +31,7 @@ export async function GET() {
                 </div>
                 <script>
                     // If the desktop app registered a protocol
-                    window.location.href = "tsx-studio://auth?token=${token}";
+                    window.location.href = "tsx-studio://auth/callback?token=${token}";
                     // Auto-close after 5 seconds if protocol worked
                     setTimeout(() => window.close(), 5000);
                 </script>

@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Terminal, Globe, ArrowRight, Sparkles, UserPlus } from "lucide-react";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 
@@ -15,6 +15,40 @@ export default function SignupPage() {
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isExternalAuth, setIsExternalAuth] = useState(false);
+
+    // Listen for Auth Success from Electron
+    useEffect(() => {
+        if (typeof window !== 'undefined' && (window as any).electronAPI) {
+            const electron = (window as any).electronAPI;
+
+            electron.getPendingToken?.().then((token: string) => {
+                if (token) handleTokenLogin(token);
+            });
+
+            const unsubscribe = electron.onAuthSuccess?.((token: string) => {
+                handleTokenLogin(token);
+            });
+
+            return () => unsubscribe?.();
+        }
+    }, []);
+
+    const handleTokenLogin = async (token: string) => {
+        setIsLoading(true);
+        setIsExternalAuth(false);
+        try {
+            await signIn("credentials", {
+                token,
+                callbackUrl: "/dashboard",
+                redirect: true
+            });
+            toast.success("Identity verified via secure bridge.");
+        } catch (error) {
+            toast.error("Bridge handshake failed.");
+            setIsLoading(false);
+        }
+    };
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -110,23 +144,52 @@ export default function SignupPage() {
                             </div>
                         </div>
 
-                        <Button
-                            variant="outline"
-                            onClick={() => signIn("google")}
-                            className="w-full h-14 bg-white/5 border border-white/5 hover:bg-white/10 rounded-2xl font-black italic text-sm group"
-                        >
-                            <Globe className="mr-3 w-5 h-5 text-neon-lime" />
-                            OAuth Google Protocol
-                        </Button>
+                        {isExternalAuth ? (
+                            <div className="py-8 space-y-4 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <div className="w-16 h-16 border-4 border-neon-lime/20 border-t-neon-lime rounded-full animate-spin mx-auto" />
+                                <div className="space-y-2">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-white italic">Bridge Negotiating</h3>
+                                    <p className="text-[10px] text-muted-foreground font-medium px-8">
+                                        Authenticating via system browser. Please continue the handshake there.
+                                    </p>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsExternalAuth(false)}
+                                    className="text-[8px] font-black uppercase tracking-widest text-muted-foreground hover:text-white"
+                                >
+                                    Abort Handshake
+                                </Button>
+                            </div>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    if (typeof window !== 'undefined' && (window as any).electronAPI) {
+                                        setIsExternalAuth(true);
+                                        (window as any).electronAPI.login();
+                                    } else {
+                                        signIn("google");
+                                    }
+                                }}
+                                className="w-full h-14 bg-white/5 border border-white/5 hover:bg-white/10 rounded-2xl font-black italic text-sm group"
+                            >
+                                <Globe className="mr-3 w-5 h-5 text-neon-lime" />
+                                OAuth Google Protocol
+                            </Button>
+                        )}
                     </CardContent>
 
                     <CardFooter className="flex flex-col items-center gap-6 pb-12 pt-6">
-                        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
-                            Already registered?
-                            <Link href="/login" className="text-neon-lime hover:text-white transition-colors underline decoration-neon-lime/20 underline-offset-4">
-                                Verify Identity
-                            </Link>
-                        </div>
+                        {!isExternalAuth && (
+                            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 italic">
+                                Already registered?
+                                <Link href="/login" className="text-neon-lime hover:text-white transition-colors underline decoration-neon-lime/20 underline-offset-4">
+                                    Verify Identity
+                                </Link>
+                            </div>
+                        )}
 
                         <div className="flex items-center gap-4 text-muted-foreground/20">
                             <Sparkles className="w-4 h-4" />

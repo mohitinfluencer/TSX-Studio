@@ -13,10 +13,29 @@ export const authConfig = {
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
+                token: { label: "Token", type: "text" },
             },
             async authorize(credentials) {
-                // This will be handled by the full auth.ts - we just return basic info here
-                // The actual user creation/lookup happens in auth.ts with the adapter
+                // Support Desktop Auth Bridge
+                if (credentials?.token) {
+                    try {
+                        const tokenStr = credentials.token as string;
+                        const decoded = JSON.parse(Buffer.from(tokenStr, 'base64').toString());
+
+                        // Basic validation of decoded payload
+                        if (decoded.uid && decoded.email && decoded.exp > Date.now()) {
+                            return {
+                                id: decoded.uid,
+                                email: decoded.email,
+                                name: decoded.email.split("@")[0],
+                            };
+                        }
+                    } catch (error) {
+                        console.error("Bridge Handshake Error:", error);
+                        return null;
+                    }
+                }
+
                 if (!credentials?.email) {
                     return null;
                 }
