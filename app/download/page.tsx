@@ -12,7 +12,10 @@ import {
     Globe,
     Github,
     ArrowRight,
-    Sparkles
+    Sparkles,
+    EyeOff,
+    Lock,
+    CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -112,22 +115,75 @@ export default function DownloadPage() {
 
                                 {os === "windows" && (
                                     <motion.div
-                                        initial={{ opacity: 0 }}
-                                        animate={{ opacity: 1 }}
-                                        transition={{ delay: 2 }}
-                                        className="bg-primary/5 border border-primary/10 rounded-xl p-3 flex items-start gap-3"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: 1, duration: 0.5 }}
+                                        className="mt-6 bg-primary/[0.03] border border-primary/20 rounded-[32px] p-6 md:p-8 space-y-6 relative overflow-hidden group shadow-2xl"
                                     >
-                                        <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                                        <p className="text-[10px] leading-relaxed text-white/40 font-medium">
-                                            Windows may show a security warning for new apps. <br />
-                                            Click <span className="text-white/60 font-bold">"More info"</span> → <span className="text-white/60 font-bold">"Run anyway"</span> to install safely.
-                                            <div className="flex gap-4 mt-2">
-                                                <Link href="/install/windows" className="text-primary hover:underline font-bold">Windows Installation Guide</Link>
-                                                <Link href="/trust" className="text-white/40 hover:text-white font-bold transition-colors">Trust & Security</Link>
+                                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+                                            <ShieldCheck className="w-32 h-32" />
+                                        </div>
+
+                                        <div className="space-y-4 relative z-10">
+                                            <div className="flex items-center gap-3">
+                                                <div className="p-2 bg-primary/10 rounded-lg border border-primary/20">
+                                                    <ShieldCheck className="w-5 h-5 text-primary" />
+                                                </div>
+                                                <h3 className="text-xl font-black italic tracking-tight uppercase leading-none">Windows Security Notice <span className="text-primary/50 font-medium tracking-normal">(Expected)</span></h3>
                                             </div>
-                                        </p>
+
+                                            <div className="space-y-2">
+                                                <p className="text-[13px] text-white/50 leading-relaxed font-medium">
+                                                    TSX Studio is a new desktop application. Windows may show a security confirmation before installation. This is normal for new professional software.
+                                                </p>
+                                                <p className="text-[11px] font-black uppercase tracking-widest text-primary/80 italic">
+                                                    This does NOT mean the app is unsafe.
+                                                </p>
+                                            </div>
+
+                                            <div className="pt-4 space-y-4 border-t border-white/5">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-white/30 font-bold">What you may see during install:</p>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-3 text-center">
+                                                        <div className="relative group/img overflow-hidden rounded-xl border border-white/10">
+                                                            <img src="/images/smartscreen-step1.png" alt="Step 1" className="w-full grayscale group-hover/img:grayscale-0 transition-all duration-500 shadow-2xl" />
+                                                            <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                                                        </div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Step 1: Click "More info"</p>
+                                                    </div>
+                                                    <div className="space-y-3 text-center">
+                                                        <div className="relative group/img overflow-hidden rounded-xl border border-white/10">
+                                                            <img src="/images/smartscreen-step2.png" alt="Step 2" className="w-full grayscale group-hover/img:grayscale-0 transition-all duration-500 shadow-2xl" />
+                                                            <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                                                        </div>
+                                                        <p className="text-[9px] font-black uppercase tracking-widest text-white/30">Step 2: Click "Run anyway"</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <p className="text-xs text-white/30 leading-relaxed font-medium italic">
+                                                Many trusted tools show this message when first installed. After the first run, Windows will not show this again.
+                                            </p>
+
+                                            <div className="pt-4 flex flex-col sm:flex-row gap-5 border-t border-white/5">
+                                                <Link href="/install/windows" className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/70 transition-all hover:drop-shadow-[0_0_8px_rgba(39,242,255,0.4)]">
+                                                    Need help installing?
+                                                </Link>
+                                                <Link href="/trust" className="text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-white transition-colors">
+                                                    How we protect your privacy
+                                                </Link>
+                                            </div>
+                                        </div>
                                     </motion.div>
                                 )}
+
+                                {/* Trust Signal Row */}
+                                <div className="flex flex-wrap items-center gap-6 px-2 pt-6">
+                                    <TrustSignal icon={<Cpu className="w-3.5 h-3.5" />} label="Local Processing" />
+                                    <TrustSignal icon={<EyeOff className="w-3.5 h-3.5" />} label="No Cloud Uploads" />
+                                    <TrustSignal icon={<Zap className="w-3.5 h-3.5" />} label="Offline Capable" />
+                                    <TrustSignal icon={<Lock className="w-3.5 h-3.5" />} label="Private Data" />
+                                </div>
                             </div>
                         </motion.div>
 
@@ -197,6 +253,19 @@ export default function DownloadPage() {
                 </div>
             </div>
         </AppShell>
+    );
+}
+
+function TrustSignal({ icon, label }: { icon: any, label: string }) {
+    return (
+        <div className="flex items-center gap-2.5 group">
+            <div className="text-primary/40 group-hover:text-primary transition-colors">
+                {icon}
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-[0.1em] text-white/20 group-hover:text-white/40 transition-colors">
+                {label}
+            </span>
+        </div>
     );
 }
 
