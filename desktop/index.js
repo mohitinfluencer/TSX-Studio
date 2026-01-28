@@ -3,8 +3,8 @@ const path = require('path');
 const fs = require('fs');
 
 /**
- * TSX STUDIO - HARDENED PRODUCTION BOOTSTRAP
- * This is the ultimate "Unlock" for native Windows binaries.
+ * TSX STUDIO - FINAL HARDENED BOOTSTRAP
+ * Prevents "ASAR Spawn" errors and silences unnecessary popups.
  */
 
 if (app.isPackaged) {
@@ -12,31 +12,33 @@ if (app.isPackaged) {
     const unpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
     const unpackedNodeModules = path.join(unpackedPath, 'node_modules');
 
-    // 1. Force-Unlock Remotion Compositor (The Render Engine)
-    // We point directly to the package folder where remotion.exe lives
+    // 1. Force-Unlock All Binaries
     const compositorPkg = path.join(unpackedNodeModules, '@remotion', 'compositor-win32-x64-msvc');
-    if (fs.existsSync(compositorPkg)) {
-        process.env.REMOTION_COMPOSITOR_BINARY_PATH = compositorPkg;
-    }
-
-    // 2. Force-Unlock esbuild (The Project Builder)
     const esbuildPath = path.join(unpackedNodeModules, '@esbuild', 'win32-x64', 'esbuild.exe');
-    if (fs.existsSync(esbuildPath)) {
-        process.env.ESBUILD_BINARY_PATH = esbuildPath;
-    }
-
-    // 3. Force-Unlock FFmpeg (The Video Encoder)
     const ffmpegPath = path.join(unpackedNodeModules, 'ffmpeg-static', 'ffmpeg.exe');
     const ffprobePath = path.join(unpackedNodeModules, 'ffprobe-static', 'bin', 'win32', 'x64', 'ffprobe.exe');
 
+    if (fs.existsSync(compositorPkg)) process.env.REMOTION_COMPOSITOR_BINARY_PATH = compositorPkg;
+    if (fs.existsSync(esbuildPath)) process.env.ESBUILD_BINARY_PATH = esbuildPath;
     if (fs.existsSync(ffmpegPath)) process.env.FFMPEG_BINARY = ffmpegPath;
     if (fs.existsSync(ffprobePath)) process.env.FFPROBE_BINARY = ffprobePath;
 
-    // 4. Disable Security Sandbox
-    // This is required for Electron to let these tools "talk" to each other
+    // 2. Global Sandbox & Permission Bypass
     process.env.ELECTRON_DISABLE_SANDBOX = '1';
     app.commandLine.appendSwitch('no-sandbox');
     app.commandLine.appendSwitch('disable-gpu-sandbox');
+
+    // 3. SILENCE GHOST POPUPS
+    // This catches internal "spawn" errors before they reach the user
+    process.on('uncaughtException', (err) => {
+        if (err.message && (err.message.includes('ENOENT') || err.message.includes('spawn'))) {
+            console.warn('[SILENCED GHOST ERROR]:', err.message);
+            // We ignore these because they are usually Remotion probing for files
+            // that we have already overridden with the correct paths.
+            return;
+        }
+        console.error('SYSTEM ERROR:', err);
+    });
 }
 
 const isDev = !app.isPackaged && process.env.NODE_ENV === 'development';

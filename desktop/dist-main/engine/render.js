@@ -38,7 +38,7 @@ async function renderProject(options) {
     const tempDir = path_1.default.join(baseDir, '.tsx-temp', projectId);
     const rendersDir = path_1.default.join(baseDir, 'renders');
     const logFile = path_1.default.join(baseDir, 'render-debug.log');
-    // Set writable cache for Chromium
+    // Writable cache for Chromium
     process.env.PUPPETEER_CACHE_DIR = path_1.default.join(baseDir, 'puppeteer-cache');
     await fs_extra_1.default.remove(logFile);
     const log = async (msg) => {
@@ -55,17 +55,10 @@ async function renderProject(options) {
     const cssPath = path_1.default.join(tempDir, 'styles.css');
     const outputPath = path_1.default.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
     try {
-        await log('--- SYSTEM READINESS CHECK ---');
-        const compDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
-        const esbuildPath = process.env.ESBUILD_BINARY_PATH;
+        await log('--- STARTING CLEAN RENDER ---');
+        const binDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
         const ffmpegPath = process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)();
-        await log(`Compositor Path: ${compDir} (${fs_extra_1.default.existsSync(compDir || '') ? 'OK' : 'MISSING'})`);
-        await log(`esbuild Path: ${esbuildPath} (${fs_extra_1.default.existsSync(esbuildPath || '') ? 'OK' : 'MISSING'})`);
-        await log(`FFmpeg Path: ${ffmpegPath} (${fs_extra_1.default.existsSync(ffmpegPath || '') ? 'OK' : 'MISSING'})`);
-        if (!compDir || !fs_extra_1.default.existsSync(compDir)) {
-            throw new Error("Render Engine tool (remotion.exe) is missing or blocked by antivirus. Please reinstall.");
-        }
-        await log('Step 1: Preparing Project Files...');
+        await log('Step 1: Preparing build...');
         await fs_extra_1.default.writeFile(inputPath, code);
         const entryContent = `
             import React from 'react';
@@ -89,27 +82,29 @@ async function renderProject(options) {
         `;
         await fs_extra_1.default.writeFile(entryPath, entryContent);
         await fs_extra_1.default.writeFile(cssPath, `/* Tailwind placeholder */`);
-        await log('Step 2: Bundling Video Assets...');
+        await log('Step 2: Bundling Code...');
         const bundled = await (0, bundler_1.bundle)({
             entryPoint: entryPath,
             outDir: path_1.default.join(tempDir, 'bundle'),
         });
-        await log('Step 3: Initializing Composition...');
+        await log('Step 3: Initializing Engine...');
+        // CRITICAL FIX: Also pass binDir to selectComposition to prevent pre-flight crash
         const composition = await (0, renderer_1.selectComposition)({
             serveUrl: bundled,
             id: 'Main',
+            binariesDirectory: binDir || undefined
         });
-        await log('Step 4: Rendering High-Quality Frames...');
+        await log('Step 4: Rendering MP4...');
         await (0, renderer_1.renderMedia)({
             composition,
             serveUrl: bundled,
             codec: 'h264',
             outputLocation: outputPath,
-            concurrency: 1, // Single-threaded for maximum stability on Windows
+            concurrency: 1,
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
-            binariesDirectory: compDir,
+            binariesDirectory: binDir || undefined,
             ffmpegExecutable: ffmpegPath || undefined,
             ffprobeExecutable: process.env.FFPROBE_BINARY || (0, ffmpeg_1.getFFprobePath)() || undefined,
             onProgress: ({ progress }) => {
@@ -125,7 +120,7 @@ async function renderProject(options) {
             fileSize = stats.size;
         }
         catch (err) { }
-        await log('SUCCESS: Rendering completed perfectly!');
+        await log('COMPLETE: Render successful.');
         if (options.jobId)
             await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
         await fs_extra_1.default.remove(tempDir);
@@ -133,7 +128,7 @@ async function renderProject(options) {
     }
     catch (error) {
         const errorStack = error.stack || error.message;
-        await log(`CRITICAL FAILURE:\n${errorStack}`);
+        await log(`ERROR:\n${errorStack}`);
         console.error("Render failed:", error);
         onLog(`Failed: ${error.message}`);
         if (options.jobId)

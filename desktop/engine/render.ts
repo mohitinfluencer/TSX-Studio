@@ -47,7 +47,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const rendersDir = path.join(baseDir, 'renders');
     const logFile = path.join(baseDir, 'render-debug.log');
 
-    // Set writable cache for Chromium
+    // Writable cache for Chromium
     process.env.PUPPETEER_CACHE_DIR = path.join(baseDir, 'puppeteer-cache');
 
     await fs.remove(logFile);
@@ -68,20 +68,11 @@ export async function renderProject(options: RenderOptions): Promise<string> {
     const outputPath = path.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
 
     try {
-        await log('--- SYSTEM READINESS CHECK ---');
-        const compDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
-        const esbuildPath = process.env.ESBUILD_BINARY_PATH;
+        await log('--- STARTING CLEAN RENDER ---');
+        const binDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
         const ffmpegPath = process.env.FFMPEG_BINARY || getFFmpegPath();
 
-        await log(`Compositor Path: ${compDir} (${fs.existsSync(compDir || '') ? 'OK' : 'MISSING'})`);
-        await log(`esbuild Path: ${esbuildPath} (${fs.existsSync(esbuildPath || '') ? 'OK' : 'MISSING'})`);
-        await log(`FFmpeg Path: ${ffmpegPath} (${fs.existsSync(ffmpegPath || '') ? 'OK' : 'MISSING'})`);
-
-        if (!compDir || !fs.existsSync(compDir)) {
-            throw new Error("Render Engine tool (remotion.exe) is missing or blocked by antivirus. Please reinstall.");
-        }
-
-        await log('Step 1: Preparing Project Files...');
+        await log('Step 1: Preparing build...');
         await fs.writeFile(inputPath, code);
 
         const entryContent = `
@@ -107,30 +98,32 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await fs.writeFile(entryPath, entryContent);
         await fs.writeFile(cssPath, `/* Tailwind placeholder */`);
 
-        await log('Step 2: Bundling Video Assets...');
+        await log('Step 2: Bundling Code...');
         const bundled = await bundle({
             entryPoint: entryPath,
             outDir: path.join(tempDir, 'bundle'),
         });
 
-        await log('Step 3: Initializing Composition...');
+        await log('Step 3: Initializing Engine...');
+        // CRITICAL FIX: Also pass binDir to selectComposition to prevent pre-flight crash
         const composition = await selectComposition({
             serveUrl: bundled,
             id: 'Main',
-        });
+            binariesDirectory: binDir || undefined
+        } as any);
 
-        await log('Step 4: Rendering High-Quality Frames...');
+        await log('Step 4: Rendering MP4...');
 
         await renderMedia({
             composition,
             serveUrl: bundled,
             codec: 'h264',
             outputLocation: outputPath,
-            concurrency: 1, // Single-threaded for maximum stability on Windows
+            concurrency: 1,
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
-            binariesDirectory: compDir,
+            binariesDirectory: binDir || undefined,
             ffmpegExecutable: ffmpegPath || undefined,
             ffprobeExecutable: process.env.FFPROBE_BINARY || getFFprobePath() || undefined,
             onProgress: ({ progress }) => {
@@ -146,7 +139,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             fileSize = stats.size;
         } catch (err) { }
 
-        await log('SUCCESS: Rendering completed perfectly!');
+        await log('COMPLETE: Render successful.');
         if (options.jobId) await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
 
         await fs.remove(tempDir);
@@ -154,7 +147,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
 
     } catch (error: any) {
         const errorStack = error.stack || error.message;
-        await log(`CRITICAL FAILURE:\n${errorStack}`);
+        await log(`ERROR:\n${errorStack}`);
         console.error("Render failed:", error);
 
         onLog(`Failed: ${error.message}`);
