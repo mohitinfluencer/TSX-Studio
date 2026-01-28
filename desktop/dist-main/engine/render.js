@@ -56,9 +56,10 @@ async function renderProject(options) {
     const outputPath = path_1.default.join(rendersDir, `render-${projectId}-${Date.now()}.mp4`);
     try {
         await log('ENVIRONMENT CHECK:');
-        await log(`ESBUILD_PATH: ${process.env.ESBUILD_BINARY_PATH || 'Not Set'}`);
-        await log(`FFMPEG_PATH: ${process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)()}`);
-        await log('Writing project files...');
+        const binDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
+        await log(`Compositor Binaries Dir: ${binDir || 'NOT SET'}`);
+        await log(`FFMPEG: ${process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)()}`);
+        await log('Step 1: Writing project files...');
         await fs_extra_1.default.writeFile(inputPath, code);
         const entryContent = `
             import React from 'react';
@@ -82,17 +83,17 @@ async function renderProject(options) {
         `;
         await fs_extra_1.default.writeFile(entryPath, entryContent);
         await fs_extra_1.default.writeFile(cssPath, `/* Tailwind placeholder */`);
-        await log('Bundling Remotion project...');
+        await log('Step 2: Bundling project with esbuild...');
         const bundled = await (0, bundler_1.bundle)({
             entryPoint: entryPath,
             outDir: path_1.default.join(tempDir, 'bundle'),
         });
-        await log('Analyzing bundle...');
+        await log('Step 3: Loading composition metadata...');
         const composition = await (0, renderer_1.selectComposition)({
             serveUrl: bundled,
             id: 'Main',
         });
-        await log('Starting render pipeline...');
+        await log('Step 4: Executing pipeline...');
         await (0, renderer_1.renderMedia)({
             composition,
             serveUrl: bundled,
@@ -102,6 +103,8 @@ async function renderProject(options) {
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
+            // Pass the unpacked node_modules path as the binaries directory
+            binariesDirectory: binDir || undefined,
             ffmpegExecutable: process.env.FFMPEG_BINARY || (0, ffmpeg_1.getFFmpegPath)() || undefined,
             ffprobeExecutable: process.env.FFPROBE_BINARY || (0, ffmpeg_1.getFFprobePath)() || undefined,
             onProgress: ({ progress }) => {
@@ -117,7 +120,7 @@ async function renderProject(options) {
             fileSize = stats.size;
         }
         catch (err) { }
-        await log('Render complete!');
+        await log('SUCCESS: Render complete!');
         if (options.jobId)
             await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
         await fs_extra_1.default.remove(tempDir);
@@ -125,7 +128,7 @@ async function renderProject(options) {
     }
     catch (error) {
         const errorStack = error.stack || error.message;
-        await fs_extra_1.default.appendFile(logFile, `CRITICAL ERROR:\n${errorStack}\n`);
+        await log(`CRITICAL ERROR:\n${errorStack}`);
         console.error("Render failed:", error);
         onLog(`Failed: ${error.message}`);
         if (options.jobId)

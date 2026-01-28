@@ -69,10 +69,11 @@ export async function renderProject(options: RenderOptions): Promise<string> {
 
     try {
         await log('ENVIRONMENT CHECK:');
-        await log(`ESBUILD_PATH: ${process.env.ESBUILD_BINARY_PATH || 'Not Set'}`);
-        await log(`FFMPEG_PATH: ${process.env.FFMPEG_BINARY || getFFmpegPath()}`);
+        const binDir = process.env.REMOTION_COMPOSITOR_BINARY_PATH;
+        await log(`Compositor Binaries Dir: ${binDir || 'NOT SET'}`);
+        await log(`FFMPEG: ${process.env.FFMPEG_BINARY || getFFmpegPath()}`);
 
-        await log('Writing project files...');
+        await log('Step 1: Writing project files...');
         await fs.writeFile(inputPath, code);
 
         const entryContent = `
@@ -98,19 +99,19 @@ export async function renderProject(options: RenderOptions): Promise<string> {
         await fs.writeFile(entryPath, entryContent);
         await fs.writeFile(cssPath, `/* Tailwind placeholder */`);
 
-        await log('Bundling Remotion project...');
+        await log('Step 2: Bundling project with esbuild...');
         const bundled = await bundle({
             entryPoint: entryPath,
             outDir: path.join(tempDir, 'bundle'),
         });
 
-        await log('Analyzing bundle...');
+        await log('Step 3: Loading composition metadata...');
         const composition = await selectComposition({
             serveUrl: bundled,
             id: 'Main',
         });
 
-        await log('Starting render pipeline...');
+        await log('Step 4: Executing pipeline...');
 
         await renderMedia({
             composition,
@@ -121,6 +122,8 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             chromiumOptions: {
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             },
+            // Pass the unpacked node_modules path as the binaries directory
+            binariesDirectory: binDir || undefined,
             ffmpegExecutable: process.env.FFMPEG_BINARY || getFFmpegPath() || undefined,
             ffprobeExecutable: process.env.FFPROBE_BINARY || getFFprobePath() || undefined,
             onProgress: ({ progress }) => {
@@ -136,7 +139,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
             fileSize = stats.size;
         } catch (err) { }
 
-        await log('Render complete!');
+        await log('SUCCESS: Render complete!');
         if (options.jobId) await reportProgress(options.jobId, 100, "COMPLETED", outputPath, durationSeconds, fileSize);
 
         await fs.remove(tempDir);
@@ -144,7 +147,7 @@ export async function renderProject(options: RenderOptions): Promise<string> {
 
     } catch (error: any) {
         const errorStack = error.stack || error.message;
-        await fs.appendFile(logFile, `CRITICAL ERROR:\n${errorStack}\n`);
+        await log(`CRITICAL ERROR:\n${errorStack}`);
         console.error("Render failed:", error);
 
         onLog(`Failed: ${error.message}`);
