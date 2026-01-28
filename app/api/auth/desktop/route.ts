@@ -15,6 +15,7 @@ export async function GET() {
 
     const token = Buffer.from(JSON.stringify({
         uid: session.user.id,
+        email: session.user.email,
         exp: Date.now() + 30 * 24 * 60 * 60 * 1000
     })).toString('base64');
 

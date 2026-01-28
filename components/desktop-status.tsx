@@ -21,7 +21,7 @@ export function DesktopStatus() {
 
                 const handleLoginAction = (token: string) => {
                     console.log("Processing Desktop OAuth...");
-                    window.location.href = `/api/auth/token-login?token=${token}`;
+                    window.location.href = `/auth/callback?token=${token}`;
                 };
 
                 // 1. Check for missed/pending tokens (startup/reload)

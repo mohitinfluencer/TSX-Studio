@@ -28,39 +28,38 @@ function handleAuthProtocol(url: string) {
 
     try {
         const urlObj = new URL(url);
-        if (urlObj.hostname === 'auth' || urlObj.pathname.includes('auth')) {
-            const token = urlObj.searchParams.get('token');
-            if (token) {
-                console.log('Successfully extracted auth token via protocol');
-                if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
-                    mainWindow.webContents.send('auth-success', token);
-                    mainWindow.focus();
-                } else {
-                    // Page not ready or loading, store for later retrieval by the renderer
-                    pendingToken = token;
-                }
-                userToken = token;
+        // We look for any property that looks like a token in the URL query string
+        const token = urlObj.searchParams.get('token');
+
+        if (token) {
+            console.log('Successfully captured authentication token.');
+            if (mainWindow && mainWindow.webContents && !mainWindow.webContents.isLoading()) {
+                mainWindow.webContents.send('auth-success', token);
+                mainWindow.focus();
+            } else {
+                // If window isn't ready, "Mailbox" the token for startup
+                pendingToken = token;
             }
+            userToken = token;
         }
     } catch (e) {
-        console.error('Failed to parse protocol URL:', e);
+        console.error('Handshake Parse Error:', e);
     }
 }
 
-// 2. Single Instance Lock (Required for Deep Linking on Windows)
+// 2. Single Instance Lock (Required for professional Deep Linking)
 const gotLock = app.requestSingleInstanceLock();
 
 if (!gotLock) {
     app.quit();
 } else {
     app.on('second-instance', (event, commandLine) => {
-        // Someone tried to run a second instance, we should focus our window.
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
         }
 
-        // Protocol Handling for Windows
+        // Windows Deep Link capture
         const url = commandLine.pop();
         if (url && url.startsWith('tsx-studio://')) {
             handleAuthProtocol(url);
@@ -74,7 +73,7 @@ if (!gotLock) {
             if (BrowserWindow.getAllWindows().length === 0) createWindow();
         });
 
-        // Protocol Handling for macOS
+        // macOS Deep Link capture
         app.on('open-url', (event, url) => {
             event.preventDefault();
             handleAuthProtocol(url);
@@ -115,7 +114,7 @@ function createWindow() {
     mainWindow.once('ready-to-show', () => {
         mainWindow?.show();
 
-        // Check if app was started via protocol
+        // Check if the app was literally opened by clicking a link
         const args = process.argv;
         const protocolArg = args.find(arg => arg.startsWith('tsx-studio://'));
         if (protocolArg) {
@@ -134,7 +133,14 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-// IPC Handlers
+// --- IPC Handlers ---
+
+ipcMain.handle('get-pending-token', () => {
+    const token = pendingToken;
+    pendingToken = null; // Clear the mailbox after delivery
+    return token;
+});
+
 ipcMain.handle('check-system', async () => {
     return await checkSystem();
 });
@@ -152,27 +158,9 @@ ipcMain.handle('render-project', async (event, options) => {
     }
 });
 
-ipcMain.handle('transcribe-media', async (event, options) => {
-    try {
-        const result = await transcribeAudio({
-            ...options,
-            onProgress: (p) => event.sender.send('transcribe-progress', p),
-            onLog: (l) => event.sender.send('transcribe-log', l),
-        });
-        return { success: true, transcription: result };
-    } catch (error: any) {
-        return { success: false, error: error.message };
-    }
-});
-
-ipcMain.handle('get-pending-token', () => {
-    const token = pendingToken;
-    pendingToken = null;
-    return token;
-});
-
-ipcMain.handle('save-token', (_, token) => { userToken = token; });
-ipcMain.handle('get-token', () => { return userToken; });
+let userTranscriptionToken: string | null = null;
+ipcMain.handle('save-token', (_, token) => { userTranscriptionToken = token; });
+ipcMain.handle('get-token', () => { return userTranscriptionToken; });
 ipcMain.handle('open-path', (_, path) => { shell.showItemInFolder(path); });
 
 ipcMain.handle('login', async () => {
@@ -185,7 +173,7 @@ ipcMain.handle('get-render-logs', async () => {
     if (await fs.pathExists(logPath)) {
         return await fs.readFile(logPath, 'utf8');
     }
-    return 'No logs found in secure storage.';
+    return 'No logs found.';
 });
 
 ipcMain.handle('install-whisper-engine', async (event) => {
