@@ -17,6 +17,7 @@ desktop/.tsx-temp/
 desktop/renderer/dist/
 renders/
 .tsx-temp/
+public/installers/
 
 # testing
 /coverage
