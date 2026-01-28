@@ -52,8 +52,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <aside className="w-72 border-r border-white/5 bg-background/50 backdrop-blur-3xl flex flex-col relative z-20 hidden md:flex">
                 <div className="p-8">
                     <Link href="/" className="flex items-center gap-3 mb-12 group">
-                        <div className="w-10 h-10 rounded-xl bg-neon-cyan/10 border border-neon-cyan/20 flex items-center justify-center group-hover:bg-neon-cyan/20 transition-all shadow-[0_0_20px_rgba(39,242,255,0.1)]">
-                            <Terminal className="w-5 h-5 text-neon-cyan" />
+                        <div className="w-11 h-11 rounded-xl bg-neon-cyan/10 border border-white/5 flex items-center justify-center group-hover:bg-neon-cyan/20 transition-all shadow-[0_0_20px_rgba(39,242,255,0.1)] overflow-hidden">
+                            <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
                         </div>
                         <span className="text-xl font-display font-black tracking-tighter italic">TSX <span className="text-neon-cyan text-sm align-top ml-[-2px]">®</span></span>
                     </Link>

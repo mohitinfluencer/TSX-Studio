@@ -30,3 +30,31 @@ export async function GET(req: Request) {
 
     return NextResponse.json(entitlement);
 }
+
+export async function POST(req: Request) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const { amount } = await req.json();
+
+    const entitlement = await db.userEntitlement.findUnique({
+        where: { userId: session.user.id },
+    });
+
+    if (!entitlement || entitlement.creditsBalance < amount) {
+        return new NextResponse("Insufficient credits", { status: 402 });
+    }
+
+    const updated = await db.userEntitlement.update({
+        where: { userId: session.user.id },
+        data: {
+            creditsBalance: {
+                decrement: amount,
+            },
+        },
+    });
+
+    return NextResponse.json(updated);
+}

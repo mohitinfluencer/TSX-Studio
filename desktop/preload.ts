@@ -1,0 +1,15 @@
+import { contextBridge, ipcRenderer } from 'electron';
+
+contextBridge.exposeInMainWorld('electronAPI', {
+    renderProject: (options: any) => ipcRenderer.invoke('render-project', options),
+    onRenderProgress: (callback: any) => ipcRenderer.on('render-progress', (_event, value) => callback(value)),
+    onRenderLog: (callback: any) => ipcRenderer.on('render-log', (_event, value) => callback(value)),
+    checkSystem: () => ipcRenderer.invoke('check-system'),
+    login: () => ipcRenderer.invoke('login'),
+    saveToken: (token: string) => ipcRenderer.invoke('save-token', token),
+    getToken: () => ipcRenderer.invoke('get-token'),
+    openPath: (path: string) => ipcRenderer.invoke('open-path', path),
+    transcribeMedia: (options: any) => ipcRenderer.invoke('transcribe-media', options),
+    onTranscribeProgress: (callback: any) => ipcRenderer.on('transcribe-progress', (_event, value) => callback(value)),
+    onTranscribeLog: (callback: any) => ipcRenderer.on('transcribe-log', (_event, value) => callback(value)),
+});

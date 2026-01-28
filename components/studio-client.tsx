@@ -611,6 +611,7 @@ export function StudioClient({
                     <ExportDialog
                         projectId={projectId}
                         versionId={activeVersionId}
+                        code={code}
                         disabled={isDemo}
                         isLoggedIn={isLoggedIn}
                         width={dimensions.width}

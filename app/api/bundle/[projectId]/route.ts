@@ -44,12 +44,18 @@ export async function GET(
     const latestVersion = project.versions[0];
 
     return NextResponse.json({
-        id: project.id,
-        name: project.name,
+        projectId: project.id,
+        composition: {
+            width: project.resolution === '4k' ? 3840 : 1920,
+            height: project.resolution === '4k' ? 2160 : 1080,
+            fps: project.fps || 30,
+            durationInFrames: 300 // Fixed for now, would come from DB
+        },
+        remotionEntry: "index.tsx",
+        assets: [], // Would describe dynamic assets
+        props: {},
+        // Legacy fields for backward compat if needed
         code: latestVersion.code,
-        resolution: project.resolution,
-        fps: project.fps,
-        durationInFrames: 300, // Default for now
-        timestamp: new Date().toISOString()
+        name: project.name
     });
 }
