@@ -354,7 +354,7 @@ export function TranscribeClient({ initialJobs }: TranscribeClientProps) {
 
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
                             <Button
-                                onClick={() => window.open('/download', '_blank')}
+                                onClick={() => router.push('/download')}
                                 size="lg"
                                 className="h-16 px-10 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95 text-base"
                             >

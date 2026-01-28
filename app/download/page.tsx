@@ -20,6 +20,7 @@ import { AppShell } from "@/components/app-shell";
 
 export default function DownloadPage() {
     const [os, setOs] = useState<"windows" | "mac" | "linux">("windows");
+    const [hasTriggered, setHasTriggered] = useState(false);
 
     useEffect(() => {
         const platform = window.navigator.platform.toLowerCase();
@@ -29,10 +30,21 @@ export default function DownloadPage() {
         else if (platform.includes("linux")) currentOs = "linux";
 
         setOs(currentOs);
+
+        // Automatic Download Funnel
+        const timer = setTimeout(() => {
+            if (!hasTriggered) {
+                handleDownload(currentOs);
+                setHasTriggered(true);
+            }
+        }, 1500);
+
+        return () => clearTimeout(timer);
     }, []);
 
     const handleDownload = (selectedOs?: string) => {
-        window.location.href = `/api/download?platform=${selectedOs || os}`;
+        const targetOs = selectedOs || os;
+        window.location.href = `/api/download?platform=${targetOs}`;
     };
 
     return (
@@ -69,25 +81,34 @@ export default function DownloadPage() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, delay: 0.2 }}
-                            className="flex flex-col sm:flex-row gap-4 pt-4"
+                            className="flex flex-col gap-4 pt-4"
                         >
-                            <Button
-                                onClick={() => handleDownload()}
-                                size="lg"
-                                className="h-16 px-10 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)] group text-lg"
-                            >
-                                <Download className="w-5 h-5 mr-3 group-hover:animate-bounce" />
-                                DOWNLOAD FOR {os.toUpperCase()}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                onClick={() => window.open('https://github.com/mohitinfluencer/TSX-Studio', '_blank')}
-                                className="h-16 px-10 border-white/5 bg-white/[0.02] hover:bg-white/5 font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all"
-                            >
-                                <Github className="w-5 h-5 mr-3 opacity-50" />
-                                VIEW SOURCE
-                            </Button>
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <Button
+                                    onClick={() => handleDownload()}
+                                    size="lg"
+                                    className="h-16 px-10 bg-white text-black hover:bg-neutral-200 font-black italic rounded-2xl transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)] group text-lg"
+                                >
+                                    <Download className="w-5 h-5 mr-3 group-hover:animate-bounce" />
+                                    DOWNLOAD FOR {os.toUpperCase()}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={() => window.open('https://github.com/mohitinfluencer/TSX-Studio', '_blank')}
+                                    className="h-16 px-10 border-white/5 bg-white/[0.02] hover:bg-white/5 font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all"
+                                >
+                                    <Github className="w-5 h-5 mr-3 opacity-50" />
+                                    VIEW SOURCE
+                                </Button>
+                            </div>
+                            <div className="px-2">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/50 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                    {hasTriggered ? "Download Initiated" : "Auto-downloading for your system..."}
+                                    <span className="text-white/20 ml-2">— If it doesn't start, click the button above.</span>
+                                </p>
+                            </div>
                         </motion.div>
 
                         <div className="flex items-center gap-8 pt-8 border-t border-white/5">
